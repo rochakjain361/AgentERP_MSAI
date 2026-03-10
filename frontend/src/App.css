@@ -1,0 +1,59 @@
+.App {
+  min-height: 100vh;
+  background-color: #FFFFFF;
+}
+
+.chat-message-enter {
+  animation: slideInMessage 0.3s ease-out;
+}
+
+@keyframes slideInMessage {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.status-dot-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.erp-card-hover {
+  transition: all 0.2s ease;
+}
+
+.erp-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.chat-input-focus {
+  transition: all 0.2s ease;
+}
+
+.chat-input-focus:focus-within {
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+}
+
+.scroll-smooth {
+  scroll-behavior: smooth;
+}
+
+.glassmorphism {
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}

@@ -1,0 +1,126 @@
+{
+  "tools": {
+    "high_value_orders": {
+      "tool_name": "high_value_orders",
+      "doctype": "Sales Order",
+      "filters": [
+        [
+          "grand_total",
+          ">",
+          50000
+        ]
+      ],
+      "fields": [
+        "name",
+        "customer",
+        "grand_total",
+        "status"
+      ],
+      "description": "Find all sales orders over 50,000",
+      "limit": 20,
+      "order_by": "creation desc",
+      "created_at": "2026-03-09T18:37:44.441200+00:00",
+      "updated_at": "2026-03-09T18:37:44.441210+00:00",
+      "run_count": 0,
+      "_id": "69af13788728bcab13015967"
+    },
+    "pending_orders": {
+      "tool_name": "pending_orders",
+      "doctype": "Sales Order",
+      "filters": [
+        [
+          "status",
+          "=",
+          "Draft"
+        ]
+      ],
+      "fields": [
+        "name",
+        "customer",
+        "grand_total",
+        "transaction_date"
+      ],
+      "description": "All pending/draft sales orders",
+      "limit": 20,
+      "order_by": "creation desc",
+      "created_at": "2026-03-09T18:38:20.895326+00:00",
+      "updated_at": "2026-03-09T18:38:20.895336+00:00",
+      "run_count": 0,
+      "_id": "69af139c8728bcab13015968"
+    },
+    "active_customers": {
+      "tool_name": "active_customers",
+      "doctype": "Customer",
+      "filters": [
+        [
+          "disabled",
+          "=",
+          0
+        ]
+      ],
+      "fields": [
+        "name",
+        "customer_name",
+        "customer_type",
+        "territory"
+      ],
+      "description": "All active customers",
+      "limit": 20,
+      "order_by": "creation desc",
+      "created_at": "2026-03-09T18:38:21.011366+00:00",
+      "updated_at": "2026-03-09T18:38:21.011377+00:00",
+      "run_count": 0,
+      "_id": "69af139d8728bcab13015969"
+    },
+    "todays_orders": {
+      "tool_name": "todays_orders",
+      "doctype": "Sales Order",
+      "filters": [
+        [
+          "transaction_date",
+          "=",
+          "2026-03-09"
+        ]
+      ],
+      "fields": [
+        "name",
+        "customer",
+        "transaction_date",
+        "grand_total",
+        "status"
+      ],
+      "description": "Show all sales orders created today",
+      "limit": 50,
+      "order_by": "creation desc",
+      "created_at": "2026-03-09T18:59:35.894216+00:00",
+      "updated_at": "2026-03-09T18:59:35.894226+00:00",
+      "run_count": 0,
+      "_id": "69af1897c383e60b934f0b0e"
+    },
+    "today_order": {
+      "tool_name": "today_order",
+      "doctype": "Sales Order",
+      "filters": [
+        [
+          "transaction_date",
+          "=",
+          "2026-03-10"
+        ]
+      ],
+      "fields": [
+        "name",
+        "customer",
+        "transaction_date",
+        "grand_total",
+        "status"
+      ],
+      "description": "Show all orders created today",
+      "limit": 50,
+      "order_by": "creation desc",
+      "created_at": "2026-03-10T09:47:09.017098+00:00",
+      "updated_at": "2026-03-10T09:47:09.017114+00:00",
+      "run_count": 0,
+      "_id": "69afe89d2d59222e1a399630"
+    }
+  }
+}

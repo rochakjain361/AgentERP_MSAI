@@ -1,0 +1,158 @@
+{
+  "meta": {
+    "project_name": "AgentERP",
+    "design_persona": "E1_Swiss_Minimalist",
+    "aesthetic": "Modern Minimalist / International Style",
+    "description": "AI-first ERP orchestration layer with a chat interface."
+  },
+  "theme": {
+    "colors": {
+      "base": {
+        "background": "#FFFFFF",
+        "foreground": "#0F172A",
+        "surface": "#F8FAFC",
+        "border": "#E2E8F0"
+      },
+      "primary": {
+        "default": "#4F46E5",
+        "foreground": "#FFFFFF",
+        "hover": "#4338CA",
+        "active": "#3730A3"
+      },
+      "secondary": {
+        "default": "#F1F5F9",
+        "foreground": "#1E293B",
+        "hover": "#E2E8F0"
+      },
+      "accent": {
+        "default": "#F97316",
+        "foreground": "#FFFFFF",
+        "description": "Use for AI actions and important alerts"
+      },
+      "destructive": {
+        "default": "#EF4444",
+        "foreground": "#FFFFFF"
+      },
+      "muted": {
+        "default": "#F8FAFC",
+        "foreground": "#64748B"
+      },
+      "erp_status": {
+        "connected": "#10B981",
+        "disconnected": "#EF4444",
+        "syncing": "#F59E0B"
+      }
+    },
+    "typography": {
+      "font_family": {
+        "headings": "Manrope, sans-serif",
+        "body": "Public Sans, sans-serif",
+        "mono": "JetBrains Mono, monospace"
+      },
+      "imports": [
+        "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Public+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      ],
+      "scale": {
+        "h1": "text-4xl font-bold tracking-tight lg:text-5xl",
+        "h2": "text-3xl font-semibold tracking-tight",
+        "h3": "text-2xl font-semibold tracking-tight",
+        "p": "text-base leading-7 text-muted-foreground",
+        "small": "text-sm font-medium leading-none"
+      }
+    },
+    "radius": {
+      "default": "0.5rem",
+      "large": "0.75rem",
+      "full": "9999px"
+    },
+    "shadows": {
+      "soft": "0 2px 10px rgba(0, 0, 0, 0.03)",
+      "medium": "0 4px 20px rgba(0, 0, 0, 0.06)",
+      "float": "0 10px 40px rgba(0, 0, 0, 0.08)"
+    }
+  },
+  "layout": {
+    "spacing": {
+      "container_padding": "p-6 md:p-8 lg:p-12",
+      "section_gap": "gap-8",
+      "item_gap": "gap-4"
+    },
+    "grid": {
+      "dashboard": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+      "chat_layout": "flex h-screen overflow-hidden bg-background"
+    },
+    "constraints": {
+      "max_chat_width": "max-w-3xl",
+      "sidebar_width": "w-64"
+    }
+  },
+  "components": {
+    "chat_bubble": {
+      "user": "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-6 py-4 shadow-sm max-w-[80%]",
+      "ai": "bg-secondary text-secondary-foreground rounded-2xl rounded-tl-sm px-6 py-4 shadow-sm max-w-[80%] border border-border/50",
+      "container": "flex flex-col space-y-6 p-4"
+    },
+    "input_area": {
+      "wrapper": "relative flex items-center w-full bg-background border border-input rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-primary/20 transition-all",
+      "input": "flex-1 bg-transparent border-0 focus:ring-0 px-4 py-4 text-base placeholder:text-muted-foreground/70",
+      "button": "p-2 mr-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+    },
+    "erp_card": {
+      "base": "bg-card text-card-foreground rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200",
+      "header": "px-6 py-4 border-b border-border bg-muted/30 flex justify-between items-center",
+      "content": "p-6",
+      "data_row": "flex justify-between py-2 border-b border-border/50 last:border-0"
+    },
+    "sidebar": {
+      "wrapper": "hidden md:flex flex-col border-r border-border bg-muted/10 h-full",
+      "item": "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground transition-colors",
+      "item_active": "bg-accent text-accent-foreground"
+    },
+    "status_indicator": {
+      "wrapper": "flex items-center gap-2 text-xs font-medium px-3 py-1 rounded-full bg-muted border border-border",
+      "dot": "w-2 h-2 rounded-full"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": "backdrop-blur-xl bg-white/70 border border-white/20 shadow-sm",
+    "gradients": {
+      "subtle_fade": "bg-gradient-to-b from-transparent to-background"
+    },
+    "micro_interactions": {
+      "hover_lift": "hover:-translate-y-0.5 hover:shadow-md transition-all duration-200",
+      "click_press": "active:scale-95 transition-transform duration-75"
+    }
+  },
+  "motion": {
+    "fade_in": "animate-in fade-in duration-500",
+    "slide_up": "animate-in slide-in-from-bottom-4 duration-500 fade-in",
+    "pulse": "animate-pulse"
+  },
+  "accessibility": {
+    "contrast_check": "Ensure text is slate-900 on white, slate-50 on slate-900.",
+    "focus_states": "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+    "aria_labels": "All interactive elements must have aria-label or visible label."
+  },
+  "instructions_to_main_agent": [
+    "1. Setup: Install 'lucide-react' for icons.",
+    "2. Fonts: Add the Google Fonts import to the head of index.html or top of index.css.",
+    "3. Layout: Create a 'ChatLayout' component that wraps the Sidebar and ChatArea.",
+    "4. State: Use a 'messages' array in state. Each message object should have { role: 'user' | 'assistant', content: string, type: 'text' | 'widget', widgetData?: any }.",
+    "5. Mocking: Mock the ERPNext API calls. Create a delay (e.g., 1000ms) to simulate network latency.",
+    "6. Widgets: Implement 'CustomerCard' and 'SalesOrderPreview' as widgets that can be rendered inside the chat stream.",
+    "7. Styling: Use the classes defined in 'components' section of this JSON. Override shadcn/ui defaults where necessary to match the 'Swiss Minimalist' aesthetic.",
+    "8. Testing: Add 'data-testid' to all interactive elements (buttons, inputs, cards)."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur) for sticky headers/inputs.",
+    "You MUST NOT apply universal transition (transition: all).",
+    "You MUST NOT center align the app container (.App { text-align: center; }).",
+    "Every interaction needs micro-animations - hover states, transitions.",
+    "Use 2-3x more spacing than feels comfortable.",
+    "Components MUST use named exports.",
+    "Use 'sonner' for toasts."
+  ]
+}
