@@ -3,7 +3,7 @@ import httpx
 import json
 import logging
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List
 import uuid
 
@@ -126,6 +126,105 @@ class ERPNextService:
             logging.error(f"Error creating customer: {str(e)}")
             return {"status": "error", "message": f"Failed to create customer: {str(e)}"}
     
+    async def check_item(self, item_code: str) -> Dict[str, Any]:
+        """Check if item exists in ERPNext."""
+        if self.mock_mode:
+            await asyncio.sleep(0.5)
+            existing_items = ["SKU001", "SKU002", "PROD001"]
+            if item_code in existing_items:
+                return {
+                    "status": "success",
+                    "exists": True,
+                    "data": {
+                        "name": item_code,
+                        "item_code": item_code,
+                        "item_name": f"Product {item_code}",
+                        "item_group": "Products"
+                    }
+                }
+            return {"status": "success", "exists": False, "data": None}
+        
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                url = f"{self.base_url}/api/resource/Item"
+                params = {
+                    "filters": json.dumps([["item_code", "=", item_code]]),
+                    "fields": '["name","item_code","item_name","item_group"]',
+                    "limit_page_length": 1
+                }
+                
+                response = await client.get(url, headers=self.headers, params=params)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    items = data.get("data", [])
+                    if items:
+                        return {
+                            "status": "success",
+                            "exists": True,
+                            "data": items[0]
+                        }
+                    else:
+                        return {"status": "success", "exists": False, "data": None}
+                else:
+                    return {"status": "error", "message": f"Failed to check item: {response.text}"}
+        except Exception as e:
+            logging.error(f"Error checking item: {str(e)}")
+            return {"status": "error", "message": f"Failed to check item: {str(e)}"}
+    
+    async def create_item(self, item_code: str, item_name: str = None) -> Dict[str, Any]:
+        """Create an item in ERPNext."""
+        if self.mock_mode:
+            await asyncio.sleep(1.0)
+            return {
+                "status": "success",
+                "message": f"Item {item_code} created successfully",
+                "data": {
+                    "name": item_code,
+                    "item_code": item_code,
+                    "item_name": item_name or f"Product {item_code}",
+                    "item_group": "Products"
+                }
+            }
+        
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                url = f"{self.base_url}/api/resource/Item"
+                
+                payload = {
+                    "doctype": "Item",
+                    "item_code": item_code,
+                    "item_name": item_name or f"Product {item_code}",
+                    "item_group": "Products",
+                    "stock_uom": "Nos",
+                    "is_stock_item": 1,
+                    "valuation_rate": 100.0,
+                    "standard_rate": 100.0,
+                    "is_purchase_item": 1,
+                    "is_sales_item": 1,
+                    "gst_hsn_code": "999999"
+                }
+                
+                response = await client.post(url, headers=self.headers, json=payload)
+                
+                if response.status_code in [200, 201]:
+                    data = response.json()
+                    item_data = data.get("data", {})
+                    return {
+                        "status": "success",
+                        "message": f"Item {item_code} created successfully",
+                        "data": item_data
+                    }
+                else:
+                    error_msg = response.json() if response.text else response.text
+                    return {
+                        "status": "error",
+                        "message": f"Failed to create item: {error_msg}"
+                    }
+        except Exception as e:
+            logging.error(f"Error creating item: {str(e)}")
+            return {"status": "error", "message": f"Failed to create item: {str(e)}"}
+    
     async def create_sales_order(self, sales_order: SalesOrder) -> Dict[str, Any]:
         """Create a sales order in ERPNext."""
         if self.mock_mode:
@@ -150,6 +249,17 @@ class ERPNextService:
                 
                 items_list = []
                 for item in sales_order.items:
+                    # Check if item exists, create if not
+                    item_check = await self.check_item(item.item_code)
+                    if not item_check.get("exists", False):
+                        logging.info(f"Item {item.item_code} does not exist, creating it...")
+                        item_create = await self.create_item(item.item_code, f"Product {item.item_code}")
+                        if item_create.get("status") != "success":
+                            return {
+                                "status": "error",
+                                "message": f"Failed to create item {item.item_code}: {item_create.get('message')}"
+                            }
+                    
                     price_url = f"{self.base_url}/api/resource/Item Price"
                     price_params = {
                         "filters": json.dumps([["item_code", "=", item.item_code], ["price_list", "=", "Standard Selling"]]),
@@ -172,14 +282,30 @@ class ERPNextService:
                         "qty": item.qty,
                         "rate": item_rate,
                         "delivery_date": sales_order.transaction_date,
-                        "warehouse": "Finished Goods - IND"
+                        "warehouse": "Finished Goods - IPL"
                     })
+                
+                # Check if customer exists, create if not
+                customer_check = await self.check_customer(sales_order.customer)
+                if not customer_check.get("exists", False):
+                    logging.info(f"Customer {sales_order.customer} does not exist, creating it...")
+                    customer_data = Customer(
+                        customer_name=sales_order.customer,
+                        customer_type="Company",
+                        territory="India"
+                    )
+                    customer_create = await self.create_customer(customer_data)
+                    if customer_create.get("status") != "success":
+                        return {
+                            "status": "error",
+                            "message": f"Failed to create customer {sales_order.customer}: {customer_create.get('message')}"
+                        }
                 
                 payload = {
                     "doctype": "Sales Order",
                     "naming_series": "SAL-ORD-",
                     "customer": sales_order.customer,
-                    "company": "India-Next (Demo)",
+                    "company": "IIMB-CodeOGs Pvt Ltd.",
                     "transaction_date": sales_order.transaction_date,
                     "delivery_date": sales_order.transaction_date,
                     "currency": "INR",
@@ -233,7 +359,6 @@ class ERPNextService:
         except Exception as e:
             logging.error(f"Error creating sales order: {str(e)}")
             return {"status": "error", "message": f"System error: {str(e)[:100]}"}
-    
     async def get_sales_orders(self, limit: int = 10) -> Dict[str, Any]:
         """Get recent sales orders."""
         try:
