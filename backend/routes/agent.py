@@ -1,25 +1,103 @@
-"""Agent routes - Handles AI chat and agent orchestration."""
-from fastapi import APIRouter, HTTPException
+"""Agent routes - Handles AI chat and agent orchestration with RBAC."""
+from fastapi import APIRouter, HTTPException, Depends, Header
 from datetime import datetime
+from typing import Optional
 import logging
 
 from models import ChatRequest, AgentRequest, AgentResponse, Customer, SalesOrder, SalesOrderItem
 from services.erp_service import erp_service
 from services.ai_service import ai_service
+from services.audit_service import audit_service
+from services.approval_service import approval_service
+from models.enterprise import AuditAction
+from routes.auth import get_current_user, require_auth
 
 router = APIRouter(tags=["agent"])
 
 
+# Access Level Definitions
+# Level 1 (Admin): Create, Edit, Delete, View + Approve for Level 2
+# Level 2 (Manager/Operator): Create, View + Approve for Level 3
+# Level 3 (Viewer): View only
+
+ACCESS_LEVELS = {
+    "admin": 1,
+    "manager": 2,
+    "operator": 2,
+    "viewer": 3
+}
+
+def get_access_level(role: str) -> int:
+    return ACCESS_LEVELS.get(role, 3)
+
+def can_create(role: str) -> bool:
+    """Level 1 and 2 can create."""
+    return get_access_level(role) <= 2
+
+def can_view_only(role: str) -> bool:
+    """Check if user is Level 3 (view only)."""
+    return get_access_level(role) == 3
+
+
+# List of create/edit intents that require Level 1 or 2
+CREATE_EDIT_INTENTS = [
+    "create_sales_order", "create_customer", "create_order",
+    "update_order", "update_customer", "edit_order", "edit_customer",
+    "delete_order", "delete_customer"
+]
+
+# Read-only intents allowed for all levels
+VIEW_INTENTS = [
+    "list_sales_orders", "list_invoices", "list_customers",
+    "check_customer", "dashboard_stats", "comprehensive_analytics",
+    "general_query"
+]
+
+
 @router.post("/chat", response_model=AgentResponse)
-async def ai_chat(request: ChatRequest):
-    """AI-powered chat endpoint that uses GPT to understand natural language and execute ERP operations."""
+async def ai_chat(request: ChatRequest, user: dict = Depends(get_current_user)):
+    """AI-powered chat endpoint with RBAC enforcement."""
     try:
         message_lower = request.message.lower()
         
-        # Direct pattern matching to bypass AI for common requests
+        # Check if user is authenticated
+        user_id = user["id"] if user else "anonymous"
+        user_email = user["email"] if user else "anonymous"
+        user_role = user["role"] if user else "viewer"
+        
+        # Block create/edit actions for Level 3 (viewers)
+        if user and can_view_only(user_role):
+            # Check if message contains create/edit keywords
+            create_keywords = ["create", "add", "new", "make", "insert", "update", "edit", "modify", "delete", "remove"]
+            if any(keyword in message_lower for keyword in create_keywords):
+                await audit_service.log_action(
+                    user_id=user_id,
+                    user_email=user_email,
+                    user_role=user_role,
+                    action=AuditAction.AI_CHAT,
+                    resource_type="Chat",
+                    result="failure",
+                    result_message="Action blocked: Viewers cannot create/edit",
+                    ai_reasoning="User attempted create/edit action with viewer role"
+                )
+                return AgentResponse(
+                    status="error",
+                    message="⚠️ Access Denied: As a Viewer (Level 3), you can only view data. Creating, editing, or deleting records requires Manager or Admin access.\n\nPlease contact your administrator to request elevated permissions."
+                )
+        
+        # Direct pattern matching for common requests (allow for all roles)
         if any(term in message_lower for term in ['comprehensive analytics', 'detailed analytics', 'insights', 'full report', 'analytics and insights']):
             result = await erp_service.get_comprehensive_analytics()
             if result["status"] == "success":
+                if user:
+                    await audit_service.log_action(
+                        user_id=user_id,
+                        user_email=user_email,
+                        user_role=user_role,
+                        action=AuditAction.QUERY_DATA,
+                        resource_type="Analytics",
+                        result="success"
+                    )
                 return AgentResponse(
                     status="success",
                     message="Here's your comprehensive business analytics dashboard:",
@@ -28,7 +106,7 @@ async def ai_chat(request: ChatRequest):
             else:
                 return AgentResponse(status="error", message=result.get("message"))
         
-        if any(term in message_lower for term in ['dashboard stat', 'quick stat', 'overview', 'quick overview']):
+        if any(term in message_lower for term in ['dashboard stat', 'quick stat', 'overview', 'quick overview', 'show me the dashboard']):
             result = await erp_service.get_dashboard_stats()
             if result["status"] == "success":
                 stats = result.get("data", {})
@@ -37,6 +115,15 @@ async def ai_chat(request: ChatRequest):
                 stats_message += f"• Sales Orders: {stats.get('total_sales_orders', 0)}\n"
                 stats_message += f"• Invoices: {stats.get('total_invoices', 0)}\n"
                 stats_message += f"• Items: {stats.get('total_items', 0)}"
+                if user:
+                    await audit_service.log_action(
+                        user_id=user_id,
+                        user_email=user_email,
+                        user_role=user_role,
+                        action=AuditAction.QUERY_DATA,
+                        resource_type="Dashboard",
+                        result="success"
+                    )
                 return AgentResponse(status="success", message=stats_message, data={"type": "dashboard", **stats})
         
         # Use AI to parse natural language
@@ -49,11 +136,60 @@ async def ai_chat(request: ChatRequest):
         intent = parsed_intent.get("intent")
         natural_response = parsed_intent.get("natural_response", "")
         
+        # Log AI chat action
+        if user:
+            await audit_service.log_action(
+                user_id=user_id,
+                user_email=user_email,
+                user_role=user_role,
+                action=AuditAction.AI_CHAT,
+                resource_type="Chat",
+                input_params={"message": request.message[:100], "intent": intent},
+                result="success",
+                ai_reasoning=f"Parsed intent: {intent}"
+            )
+        
         if intent == "general_query":
             return AgentResponse(status="success", message=natural_response, data=None)
         
+        # Check permission for create/edit intents
+        if intent in CREATE_EDIT_INTENTS:
+            if user and can_view_only(user_role):
+                return AgentResponse(
+                    status="error",
+                    message="⚠️ Access Denied: As a Viewer (Level 3), you cannot perform this action.\n\nRequired: Manager (Level 2) or Admin (Level 1) access."
+                )
+        
         # Execute ERP operations based on intent
         if intent == "create_sales_order":
+            # Check for high-value order approval requirement
+            items = parsed_intent.get("items", [])
+            estimated_value = sum(item.get("qty", 1) * item.get("rate", 0) for item in items)
+            
+            if estimated_value > 50000 and user and user_role not in ["admin"]:
+                # Requires approval
+                approval_result = await approval_service.create_approval_request(
+                    requester_id=user_id,
+                    requester_email=user_email,
+                    requester_role=user_role,
+                    action_type=AuditAction.CREATE_ORDER,
+                    resource_type="Sales Order",
+                    resource_data={
+                        "customer": parsed_intent.get("customer"),
+                        "items": items,
+                        "grand_total": estimated_value
+                    },
+                    rule_triggered="high_value_order",
+                    reason=f"Order value ₹{estimated_value:,.2f} exceeds ₹50,000 threshold",
+                    ai_analysis=f"AI detected high-value order creation request for {parsed_intent.get('customer')}"
+                )
+                
+                return AgentResponse(
+                    status="approval_required",
+                    message=f"⏳ This order requires approval.\n\n**Reason:** Order value (₹{estimated_value:,.2f}) exceeds ₹50,000 threshold.\n\nYour request has been submitted for manager approval. You will be notified once it's reviewed.",
+                    data={"approval_id": approval_result.get("approval_id")}
+                )
+            
             customer_check = await erp_service.check_customer(parsed_intent.get("customer"))
             if not customer_check.get("exists"):
                 return AgentResponse(
@@ -67,6 +203,19 @@ async def ai_chat(request: ChatRequest):
                 items=[SalesOrderItem(**item) for item in parsed_intent.get("items", [])]
             )
             result = await erp_service.create_sales_order(sales_order)
+            
+            if result["status"] == "success" and user:
+                await audit_service.log_action(
+                    user_id=user_id,
+                    user_email=user_email,
+                    user_role=user_role,
+                    action=AuditAction.CREATE_ORDER,
+                    resource_type="Sales Order",
+                    resource_id=result.get("data", {}).get("name"),
+                    result="success",
+                    result_message=f"Created order for {parsed_intent.get('customer')}"
+                )
+            
             return AgentResponse(
                 status=result["status"],
                 message=natural_response if result["status"] == "success" else result["message"],
@@ -86,6 +235,18 @@ async def ai_chat(request: ChatRequest):
             customer_data = parsed_intent.get("customer_data", {})
             customer_obj = Customer(**customer_data)
             result = await erp_service.create_customer(customer_obj)
+            
+            if result["status"] == "success" and user:
+                await audit_service.log_action(
+                    user_id=user_id,
+                    user_email=user_email,
+                    user_role=user_role,
+                    action=AuditAction.CREATE_CUSTOMER,
+                    resource_type="Customer",
+                    resource_id=result.get("data", {}).get("name"),
+                    result="success"
+                )
+            
             return AgentResponse(
                 status=result["status"],
                 message=natural_response if result["status"] == "success" else result["message"],
@@ -142,9 +303,16 @@ async def ai_chat(request: ChatRequest):
 
 
 @router.post("/agent", response_model=AgentResponse)
-async def agent_orchestration(request: AgentRequest):
-    """Main orchestration endpoint for AI agent requests."""
+async def agent_orchestration(request: AgentRequest, user: dict = Depends(require_auth)):
+    """Main orchestration endpoint for AI agent requests (requires auth)."""
     try:
+        # Check permissions for create/edit intents
+        if request.intent in CREATE_EDIT_INTENTS and can_view_only(user["role"]):
+            return AgentResponse(
+                status="error",
+                message="Access Denied: Viewers cannot perform create/edit operations."
+            )
+        
         if request.intent == "create_sales_order":
             customer_check = await erp_service.check_customer(request.customer)
             
@@ -168,6 +336,15 @@ async def agent_orchestration(request: AgentRequest):
             result = await erp_service.create_sales_order(sales_order)
             
             if result["status"] == "success":
+                await audit_service.log_action(
+                    user_id=user["id"],
+                    user_email=user["email"],
+                    user_role=user["role"],
+                    action=AuditAction.CREATE_ORDER,
+                    resource_type="Sales Order",
+                    resource_id=result.get("data", {}).get("name"),
+                    result="success"
+                )
                 return AgentResponse(status="success", message=result["message"], data=result["data"])
             else:
                 return AgentResponse(status="error", message=result["message"])
@@ -185,6 +362,18 @@ async def agent_orchestration(request: AgentRequest):
             customer_data = request.customer_data or {}
             customer_obj = Customer(**customer_data)
             result = await erp_service.create_customer(customer_obj)
+            
+            if result["status"] == "success":
+                await audit_service.log_action(
+                    user_id=user["id"],
+                    user_email=user["email"],
+                    user_role=user["role"],
+                    action=AuditAction.CREATE_CUSTOMER,
+                    resource_type="Customer",
+                    resource_id=result.get("data", {}).get("name"),
+                    result="success"
+                )
+            
             return AgentResponse(status=result["status"], message=result["message"], data=result.get("data"))
         
         else:

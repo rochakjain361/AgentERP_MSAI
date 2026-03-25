@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from pathlib import Path
+from contextlib import asynccontextmanager
 import logging
 import os
 
@@ -22,14 +23,35 @@ from routes.agent import router as agent_router
 from routes.erp import router as erp_router
 from routes.entity import router as entity_router
 from routes.tools import router as tools_router
+from routes.auth import router as auth_router
+from routes.approvals import router as approvals_router
+from routes.audit import router as audit_router
+from routes.insights import router as insights_router
+from services.auth_service import auth_service
 from database import close_db
 from config import CORS_ORIGINS
+
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application startup and shutdown."""
+    # Startup - no seeding for now due to asyncio issues
+    print("Server starting up...")
+    
+    yield
+    
+    # Shutdown
+    close_db()
+    print("Server shutting down...")
+
 
 # Create FastAPI app
 app = FastAPI(
     title="AgentERP",
     description="AI-powered ERP Orchestration Layer for ERPNext",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Include routers with /api prefix
@@ -38,6 +60,10 @@ app.include_router(agent_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
 app.include_router(entity_router, prefix="/api")
 app.include_router(tools_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
+app.include_router(approvals_router, prefix="/api")
+app.include_router(audit_router, prefix="/api")
+app.include_router(insights_router, prefix="/api")
 
 # Configure CORS
 app.add_middleware(
@@ -54,9 +80,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-
-@app.on_event("shutdown")
 async def shutdown_db_client():
     """Close database connection on shutdown."""
     close_db()

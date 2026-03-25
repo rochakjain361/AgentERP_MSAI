@@ -3,7 +3,7 @@
  */
 
 // ERPNext base URL for direct links
-export const ERP_BASE_URL = 'https://codeogs-erpnext.m.frappe.cloud';
+export const ERP_BASE_URL = 'https://india-next.m.frappe.cloud';
 
 // Quick action commands
 export const QUICK_ACTIONS = [

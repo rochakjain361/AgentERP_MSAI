@@ -37,11 +37,8 @@ async def root():
 @router.get("/health")
 async def health_check():
     """Health check endpoint for monitoring."""
-    from database import is_mongodb_available
-
     return {
         "status": "healthy",
         "erp_mode": "mock" if erp_service.mock_mode else "live",
-        "erp_url": erp_service.base_url,
-        "database": "mongodb" if is_mongodb_available() else "in-memory"
+        "erp_url": erp_service.base_url
     }

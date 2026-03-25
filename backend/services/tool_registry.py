@@ -6,7 +6,6 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 
 from database import db
-
 import os
 
 
@@ -15,7 +14,7 @@ class ToolRegistry:
 
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     TOOLS_FILE = os.path.join(BASE_DIR, "tools_registry.json")
-    
+
     def __init__(self):
         self._ensure_tools_file()
     

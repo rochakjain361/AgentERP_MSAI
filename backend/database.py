@@ -20,6 +20,11 @@ except Exception as e:
         def __init__(self):
             self.chat_sessions = MockCollection()
             self.chat_messages = MockCollection()
+            self.users = MockCollection()  # Add users collection
+        
+        def __getitem__(self, key):
+            """Allow dict-like access to collections."""
+            return getattr(self, key, MockCollection())
 
     class MockCollection:
         def __init__(self):
@@ -76,6 +81,16 @@ except Exception as e:
             original_len = len(self.data)
             self.data = [item for item in self.data if not all(item.get(k) == v for k, v in query.items())]
             return {"deleted_count": original_len - len(self.data)}
+
+        async def count_documents(self, query=None):
+            """Count documents matching query."""
+            if query is None:
+                return len(self.data)
+            count = 0
+            for item in self.data:
+                if all(item.get(k) == v for k, v in query.items()):
+                    count += 1
+            return count
 
         def to_list(self, length):
             return self.data[:length]

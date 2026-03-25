@@ -1,5 +1,5 @@
 /**
- * Custom hook for managing chat sessions and messages
+ * Custom hook for managing chat sessions and messages with user ownership
  */
 import { useState, useCallback } from 'react';
 import { chatApi } from '../lib/api';
@@ -15,29 +15,49 @@ export const useChat = () => {
   const loadChatSessions = useCallback(async () => {
     try {
       const response = await chatApi.getSessions();
-      setChatSessions(response.data || []);
+      const sessions = response.data || [];
+      setChatSessions(sessions);
       
-      if (!response.data || response.data.length === 0) {
-        await createNewChat();
+      // Only auto-create if authenticated (backend will reject if not)
+      if (sessions.length === 0) {
+        // Don't auto-create, let user create manually
+        setCurrentSessionId(null);
+        setMessages([]);
       } else {
-        setCurrentSessionId(response.data[0].id);
+        setCurrentSessionId(sessions[0].id);
       }
     } catch (error) {
+      // If 401, user is not logged in - that's fine
+      if (error.response?.status === 401) {
+        setChatSessions([]);
+        setCurrentSessionId(null);
+        return;
+      }
       console.error('Failed to load chat sessions:', error);
-      await createNewChat();
     }
   }, []);
 
   const createNewChat = useCallback(async () => {
     try {
       const response = await chatApi.createSession();
-      const newSession = response.data.session;
-      setChatSessions(prev => [newSession, ...prev]);
-      setCurrentSessionId(newSession.id);
-      setMessages([]);
-      setSmartSuggestions([]);
+      if (response.data.status === 'success') {
+        const newSession = response.data.session;
+        setChatSessions(prev => [newSession, ...prev]);
+        setCurrentSessionId(newSession.id);
+        setMessages([]);
+        setSmartSuggestions([]);
+        return newSession;
+      }
     } catch (error) {
-      console.error('Failed to create new chat:', error);
+      if (error.response?.status === 403) {
+        toast.error('Access Denied: Viewers cannot create new chats');
+      } else if (error.response?.status === 401) {
+        toast.error('Please sign in to create a chat');
+      } else {
+        console.error('Failed to create new chat:', error);
+        toast.error('Failed to create chat');
+      }
+      return null;
     }
   }, []);
 
@@ -46,8 +66,13 @@ export const useChat = () => {
       const response = await chatApi.getMessages(sessionId);
       setMessages(response.data || []);
     } catch (error) {
-      console.error('Failed to load session messages:', error);
-      setMessages([]);
+      if (error.response?.status === 403) {
+        toast.error('Access Denied: You can only view your own chats');
+        setMessages([]);
+      } else {
+        console.error('Failed to load session messages:', error);
+        setMessages([]);
+      }
     }
   }, []);
 
@@ -58,15 +83,26 @@ export const useChat = () => {
       setChatSessions(prev => prev.filter(s => s.id !== sessionId));
       
       if (sessionId === currentSessionId) {
-        await createNewChat();
+        // Try to select next session or clear
+        const remainingSessions = chatSessions.filter(s => s.id !== sessionId);
+        if (remainingSessions.length > 0) {
+          setCurrentSessionId(remainingSessions[0].id);
+        } else {
+          setCurrentSessionId(null);
+          setMessages([]);
+        }
       }
       
       toast.success('Chat deleted');
     } catch (error) {
-      console.error('Failed to delete chat:', error);
-      toast.error('Failed to delete chat');
+      if (error.response?.status === 403) {
+        toast.error('Access Denied: You can only delete your own chats');
+      } else {
+        console.error('Failed to delete chat:', error);
+        toast.error('Failed to delete chat');
+      }
     }
-  }, [currentSessionId, createNewChat]);
+  }, [currentSessionId, chatSessions]);
 
   const saveChatMessage = useCallback(async (message) => {
     if (!currentSessionId) return;
@@ -77,9 +113,11 @@ export const useChat = () => {
         session_id: currentSessionId
       });
       
+      // Refresh sessions to update titles
       const response = await chatApi.getSessions();
       setChatSessions(response.data || []);
     } catch (error) {
+      // Don't show error for message saving - it's background
       console.error('Failed to save message:', error);
     }
   }, [currentSessionId]);
@@ -125,6 +163,17 @@ export const useChat = () => {
   const sendMessage = useCallback(async (input, conversationHistory) => {
     if (!input.trim()) return;
 
+    // Ensure we have a session
+    let sessionId = currentSessionId;
+    if (!sessionId) {
+      const newSession = await createNewChat();
+      if (!newSession) {
+        toast.error('Please sign in to send messages');
+        return;
+      }
+      sessionId = newSession.id;
+    }
+
     const userMessage = {
       role: 'user',
       content: input,
@@ -151,7 +200,11 @@ export const useChat = () => {
         timestamp: new Date().toISOString()
       };
 
-      if (response.data.status === 'success' && response.data.data) {
+      // Handle approval required status
+      if (response.data.status === 'approval_required') {
+        aiMessage.type = 'approval_required';
+        aiMessage.approval_id = response.data.data?.approval_id;
+      } else if (response.data.status === 'success' && response.data.data) {
         const data = response.data.data;
         
         if (data.type === 'comprehensive_analytics' || 
@@ -175,8 +228,13 @@ export const useChat = () => {
       
       if (response.data.status === 'success') {
         toast.success('Action completed successfully');
-      } else {
-        toast.error('Action failed');
+      } else if (response.data.status === 'approval_required') {
+        toast.info('Action requires approval');
+      } else if (response.data.status === 'error') {
+        // Don't show toast for access denied - message already shows it
+        if (!response.data.message?.includes('Access Denied')) {
+          toast.error('Action failed');
+        }
       }
     } catch (error) {
       const errorMessage = {
@@ -190,7 +248,7 @@ export const useChat = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [saveChatMessage, generateSmartSuggestions]);
+  }, [currentSessionId, createNewChat, saveChatMessage, generateSmartSuggestions]);
 
   return {
     messages,

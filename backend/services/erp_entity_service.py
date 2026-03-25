@@ -211,16 +211,40 @@ class ERPEntityService:
         return result
     
     async def query(self, doctype: str, filters: List = None, fields: List[str] = None, 
-                    limit: int = 20, order_by: str = "creation desc") -> Dict[str, Any]:
-        """Query entities from ERPNext with filters."""
+                    limit: int = 20, order_by: str = "creation desc",
+                    company_filter: str = None) -> Dict[str, Any]:
+        """Query entities from ERPNext with filters and optional company filtering."""
         url = f"{self.base_url}/api/resource/{doctype}"
         params = {
             "limit_page_length": limit,
             "order_by": order_by
         }
         
-        if filters:
-            params["filters"] = json.dumps(filters)
+        # Build filters list
+        query_filters = filters.copy() if filters else []
+        
+        # Add company filter for non-admin users
+        if company_filter:
+            # Different DocTypes have different company fields
+            company_field_map = {
+                "Sales Order": "customer",
+                "Sales Invoice": "customer",
+                "Quotation": "party_name",
+                "Delivery Note": "customer",
+                "Customer": "name",  # Filter customers by name match
+            }
+            
+            field = company_field_map.get(doctype, "customer")
+            
+            if doctype == "Customer":
+                # For customer, filter by name containing company
+                query_filters.append([field, "like", f"%{company_filter}%"])
+            else:
+                # For orders/invoices, filter by customer
+                query_filters.append([field, "=", company_filter])
+        
+        if query_filters:
+            params["filters"] = json.dumps(query_filters)
         if fields:
             params["fields"] = json.dumps(fields)
         
