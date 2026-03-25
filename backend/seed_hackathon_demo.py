@@ -24,8 +24,8 @@ from typing import Dict, Any, List, Optional
 import logging
 
 from database import db, mongodb_available
-from models.enterprise import UserRole, ApprovalStatus, AuditAction
-from models import ChatSession, ChatMessage
+from models.enterprise import UserRole, ApprovalStatus, AuditAction, UserCreate
+from models import ChatSession, ChatMessage, SalesOrder, SalesOrderItem
 from services.auth_service import auth_service
 from services.approval_service import approval_service
 from services.audit_service import audit_service
@@ -298,28 +298,28 @@ async def seed_users() -> Dict[str, str]:
     try:
         for user_data in DEMO_USERS:
             try:
-                # Try to create user via auth service
-                user_doc = {
-                    "id": str(uuid.uuid4()),
-                    "email": user_data["email"],
-                    "password_hash": "dummy_hash",  # Won't be verified in demo
-                    "name": user_data["name"],
-                    "role": user_data["role"],
-                    "company": user_data["company"],
-                    "created_at": DEMO_BASE_TIME.isoformat(),
-                    "last_login": None
-                }
-                
-                # Check if user exists
+                # If user exists, keep ID; else register with hashed password.
                 existing = await db.users.find_one({"email": user_data["email"]})
-                if not existing:
-                    await db.users.insert_one(user_doc)
+                if existing:
+                    user_ids[user_data["email"]] = existing.get("id") or existing.get("_id")
+                    logger.info(f"  ✓ User already exists: {user_data['email']}")
+                    continue
+
+                register_payload = UserCreate(
+                    email=user_data["email"],
+                    password=user_data["password"],
+                    name=user_data["name"],
+                    role=user_data["role"],
+                    company=user_data["company"]
+                )
+
+                result = await auth_service.register_user(register_payload)
+                if result["status"] == "success":
+                    user_ids[user_data["email"]] = result["user"]["id"]
                     logger.info(f"  ✓ Created user: {user_data['email']} ({user_data['role']})")
                 else:
-                    user_doc["id"] = existing.get("id", existing.get("_id"))
-                    logger.info(f"  ✓ User already exists: {user_data['email']}")
-                
-                user_ids[user_data["email"]] = user_doc["id"]
+                    logger.error(f"  ✗ Failed to create user {user_data['email']}: {result.get('message')}")
+
             except Exception as e:
                 logger.error(f"  ✗ Error creating user {user_data['email']}: {e}")
         
@@ -429,20 +429,16 @@ async def seed_erp_sales_orders(customer_ids: Dict[str, str]) -> Dict[str, str]:
     try:
         for order_data in DEMO_SALES_ORDERS:
             try:
-                # Create in ERPNext
-                create_result = await erp_service.create_sales_order(
-                    sales_order=type('SalesOrder', (), {
-                        'customer': order_data['customer_name'],
-                        'transaction_date': order_data['transaction_date'],
-                        'items': [
-                            type('SalesOrderItem', (), {
-                                'item_code': item['item_code'],
-                                'qty': item['qty']
-                            })()
-                            for item in order_data['items']
-                        ]
-                    })()
+                # Create in ERPNext using pydantic models
+                order_items = [SalesOrderItem(item_code=item['item_code'], qty=item['qty'])
+                               for item in order_data['items']]
+                sales_order = SalesOrder(
+                    customer=order_data['customer_name'],
+                    transaction_date=order_data['transaction_date'],
+                    items=order_items
                 )
+
+                create_result = await erp_service.create_sales_order(sales_order=sales_order)
                 
                 if create_result.get("status") == "success":
                     logger.info(f"  ✓ Created order: {order_data['order_id']} (₹{order_data['grand_total']:,})")
@@ -505,12 +501,12 @@ async def seed_approval_requests(order_ids: Dict[str, str], user_ids: Dict[str, 
     
     try:
         # Find all high-value orders in MongoDB
-        high_value_orders = await db.sales_orders.find({
+        high_value_orders_cursor = db.sales_orders.find({
             "grand_total": {"$gt": 50000},
             "approval_status": {"$in": ["pending", "approved"]}
         })
         
-        for order in high_value_orders:
+        async for order in high_value_orders_cursor:
             # Create approval request
             approval_request = {
                 "id": str(uuid.uuid4()),
@@ -1006,7 +1002,7 @@ async def seed_all(reset: bool = True):
         logger.info("📖 Default demo users:")
         for user in DEMO_USERS:
             logger.info(f"   - {user['email']} / {user['password']} ({user['role']})")
-        logger.info()
+        logger.info("Demo seeding finished successfully.")
         
         return {"status": "success", "message": "Demo seeding complete"}
     except Exception as e:

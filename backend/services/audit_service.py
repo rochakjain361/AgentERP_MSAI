@@ -13,8 +13,9 @@ logger = logging.getLogger(__name__)
 class AuditService:
     """Service for tracking and logging all system actions."""
     
-    def __init__(self):
-        self.audit_collection = db["audit_logs"]
+    @property
+    def audit_collection(self):
+        return db["audit_logs"]
     
     async def log_action(
         self,

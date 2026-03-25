@@ -24,8 +24,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 class AuthService:
     """Service for authentication and user management with company support."""
     
-    def __init__(self):
-        self.users_collection = db["users"]
+    @property
+    def users_collection(self):
+        return db["users"]
     
     def _hash_password(self, password: str) -> str:
         return pwd_context.hash(password)
@@ -94,13 +95,22 @@ class AuthService:
             user = await self.users_collection.find_one({"email": email})
             
             # If user doesn't exist and it's a demo user, create it
-            if not user and email in ["admin@agenterp.com", "manager@techcorp.com", "operator@innovate.com", "viewer@global.com"]:
-                demo_users = {
-                    "admin@agenterp.com": {"name": "Admin User", "password": "admin123", "role": UserRole.ADMIN, "company": None},
-                    "manager@techcorp.com": {"name": "TechCorp Manager", "password": "manager123", "role": UserRole.MANAGER, "company": "TechCorp Solutions"},
-                    "operator@innovate.com": {"name": "InnovateTech Operator", "password": "operator123", "role": UserRole.OPERATOR, "company": "InnovateTech Pvt Ltd"},
-                    "viewer@global.com": {"name": "Global Viewer", "password": "viewer123", "role": UserRole.VIEWER, "company": "Global Industries Ltd"},
-                }
+            demo_users = {
+                "admin@agenterp.com": {"name": "Admin User", "password": "admin123", "role": UserRole.ADMIN, "company": None},
+                "manager@agenterp.com": {"name": "Sarah Johnson", "password": "manager123", "role": UserRole.MANAGER, "company": "TechCorp Solutions"},
+                "operator@agenterp.com": {"name": "Raj Patel", "password": "operator123", "role": UserRole.OPERATOR, "company": "TechCorp Solutions"},
+                "viewer@agenterp.com": {"name": "Lisa Chen", "password": "viewer123", "role": UserRole.VIEWER, "company": "TechCorp Solutions"},
+                "manager@techcorp.com": {"name": "TechCorp Manager", "password": "manager123", "role": UserRole.MANAGER, "company": "TechCorp Solutions"},
+                "operator@innovate.com": {"name": "InnovateTech Operator", "password": "operator123", "role": UserRole.OPERATOR, "company": "InnovateTech Pvt Ltd"},
+                "viewer@global.com": {"name": "Global Viewer", "password": "viewer123", "role": UserRole.VIEWER, "company": "Global Industries Ltd"},
+            }
+            if not user and email in demo_users:
+                user_data = demo_users[email]
+                user_data["email"] = email
+                result = await self.register_user(UserCreate(**user_data))
+                if result["status"] == "success":
+                    user = await self.users_collection.find_one({"email": email})
+                    logger.info(f"Created demo user: {email}")
                 if email in demo_users:
                     user_data = demo_users[email]
                     user_data["email"] = email

@@ -2,11 +2,13 @@
 import httpx
 import json
 import logging
+import time
+from datetime import datetime
 from typing import Dict, Any, List
 
 from config import (
-    AZURE_OPENAI_ENDPOINT, 
-    AZURE_OPENAI_API_KEY, 
+    AZURE_OPENAI_ENDPOINT,
+    AZURE_OPENAI_API_KEY,
     AZURE_OPENAI_MODEL,
     AZURE_OPENAI_API_VERSION
 )
@@ -32,8 +34,6 @@ class AIService:
         self.model = AZURE_OPENAI_MODEL
         self.api_version = AZURE_OPENAI_API_VERSION
         
-        # Azure OpenAI uses different endpoint format
-        # Format: {endpoint}/openai/deployments/{deployment-name}/chat/completions?api-version={api-version}
         self.chat_url = f"{self.endpoint}/openai/deployments/{self.model}/chat/completions?api-version={self.api_version}"
         
         self.headers = {

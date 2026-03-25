@@ -19,8 +19,9 @@ HIGH_VALUE_ORDER_THRESHOLD = 50000  # ₹50,000
 class ApprovalService:
     """Service for managing approval workflows."""
     
-    def __init__(self):
-        self.approvals_collection = db["approval_requests"]
+    @property
+    def approvals_collection(self):
+        return db["approval_requests"]
     
     def check_approval_required(
         self,
