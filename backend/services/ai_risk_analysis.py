@@ -46,25 +46,49 @@ class AIRiskAnalysisService:
         MEDIUM: (amount_due < 50000 AND days_overdue > 30) OR (amount_due > 50000 AND days_overdue < 30)
         LOW: amount_due < 50000 AND days_overdue < 30
         """
-        if amount_due > AMOUNT_THRESHOLD and days_overdue > DAYS_THRESHOLD:
+        if amount_due >= AMOUNT_THRESHOLD and days_overdue >= DAYS_THRESHOLD:
             return RiskLevel.CRITICAL
-        elif (amount_due < AMOUNT_THRESHOLD and days_overdue > DAYS_THRESHOLD) or \
-             (amount_due > AMOUNT_THRESHOLD and days_overdue < DAYS_THRESHOLD):
+        elif (amount_due < AMOUNT_THRESHOLD and days_overdue >= DAYS_THRESHOLD) or \
+             (amount_due >= AMOUNT_THRESHOLD and days_overdue < DAYS_THRESHOLD):
             return RiskLevel.MEDIUM
         else:
             return RiskLevel.LOW
+
+    def _to_number(self, value: Any) -> float:
+        """Safely convert values from ERP payloads into float."""
+        try:
+            if value is None:
+                return 0.0
+            if isinstance(value, (int, float)):
+                return float(value)
+            return float(str(value).replace(",", "").strip())
+        except Exception:
+            return 0.0
+
+    def _parse_date(self, value: Any):
+        """Parse date from ERP string/date/datetime payloads."""
+        if not value:
+            return None
+        try:
+            if isinstance(value, str):
+                return datetime.strptime(value[:10], "%Y-%m-%d").date()
+            if hasattr(value, "date"):
+                return value.date()
+            return value
+        except Exception:
+            return None
     
     def get_reasoning(self, risk_level: RiskLevel, amount_due: float, days_overdue: int) -> str:
         """Generate human-readable reasoning for the risk classification."""
         if risk_level == RiskLevel.CRITICAL:
-            return f"Amount exceeds ₹{AMOUNT_THRESHOLD:,} (₹{amount_due:,.0f}) and is overdue by more than {DAYS_THRESHOLD} days ({days_overdue} days), indicating high payment risk requiring immediate intervention."
+            return f"Open exposure is high (₹{amount_due:,.0f}) and aging is severe ({days_overdue} days), signaling immediate cash-flow and collection risk."
         elif risk_level == RiskLevel.MEDIUM:
-            if amount_due > AMOUNT_THRESHOLD:
-                return f"High outstanding amount (₹{amount_due:,.0f}) but within acceptable overdue period ({days_overdue} days). Monitor closely and send reminder."
+            if amount_due >= AMOUNT_THRESHOLD:
+                return f"Material exposure detected (₹{amount_due:,.0f}) with manageable aging ({days_overdue} days). Prioritize structured follow-up."
             else:
-                return f"Extended overdue period ({days_overdue} days) but manageable amount (₹{amount_due:,.0f}). Payment reminder recommended."
+                return f"Aging is elevated ({days_overdue} days) with moderate exposure (₹{amount_due:,.0f}). Escalated reminder cadence is recommended."
         else:
-            return f"Amount (₹{amount_due:,.0f}) and overdue period ({days_overdue} days) are within acceptable limits. No immediate intervention required."
+            return f"Exposure (₹{amount_due:,.0f}) and aging ({days_overdue} days) remain within control bands. Continue standard monitoring."
     
     def get_suggested_actions(self, risk_level: RiskLevel, customer: str) -> List[Dict[str, Any]]:
         """Get suggested actions based on risk level."""
@@ -176,7 +200,7 @@ class AIRiskAnalysisService:
             customer_outstanding = {}
             for invoice in invoices_result.get("data", []):
                 customer = invoice.get("customer", "Unknown")
-                outstanding = invoice.get("outstanding_amount", 0)
+                outstanding = self._to_number(invoice.get("outstanding_amount", 0))
                 due_date_str = invoice.get("due_date")
                 
                 if customer not in customer_outstanding:
@@ -192,38 +216,22 @@ class AIRiskAnalysisService:
                 # Calculate overdue days
                 if due_date_str and outstanding > 0:
                     try:
-                        if isinstance(due_date_str, str):
-                            due_date = datetime.strptime(due_date_str[:10], "%Y-%m-%d").date()
-                        else:
-                            due_date = due_date_str
-                        
-                        overdue_days = (today - due_date).days
+                        due_date = self._parse_date(due_date_str)
+                        overdue_days = max(0, (today - due_date).days) if due_date else 0
                         if overdue_days > customer_outstanding[customer]["max_overdue_days"]:
                             customer_outstanding[customer]["max_overdue_days"] = overdue_days
                     except Exception:
                         pass
             
-            # Also analyze orders without invoices
+            # Add draft order exposure and aging for all customers.
             for order in orders_result.get("data", []):
                 customer = order.get("customer", "Unknown")
+                order_status = (order.get("status") or "").lower()
                 if customer not in customer_outstanding:
-                    # Create entry for orders without invoices
-                    trans_date_str = order.get("transaction_date")
-                    days_since_order = 0
-                    
-                    if trans_date_str:
-                        try:
-                            if isinstance(trans_date_str, str):
-                                trans_date = datetime.strptime(trans_date_str[:10], "%Y-%m-%d").date()
-                            else:
-                                trans_date = trans_date_str
-                            days_since_order = (today - trans_date).days
-                        except Exception:
-                            pass
-                    
                     customer_outstanding[customer] = {
-                        "total_outstanding": order.get("grand_total", 0) if order.get("status") == "Draft" else 0,
-                        "max_overdue_days": days_since_order if order.get("status") == "Draft" else 0,
+                        "total_outstanding": 0,
+                        "max_overdue_days": 0,
+                        "draft_exposure": 0,
                         "invoices": [],
                         "orders": [order]
                     }
@@ -231,6 +239,19 @@ class AIRiskAnalysisService:
                     if "orders" not in customer_outstanding[customer]:
                         customer_outstanding[customer]["orders"] = []
                     customer_outstanding[customer]["orders"].append(order)
+
+                # Draft orders indicate pipeline exposure and operational delay.
+                if order_status == "draft":
+                    order_amount = self._to_number(order.get("grand_total", 0))
+                    customer_outstanding[customer]["draft_exposure"] = (
+                        customer_outstanding[customer].get("draft_exposure", 0) + order_amount
+                    )
+                    customer_outstanding[customer]["total_outstanding"] += order_amount
+
+                    order_date = self._parse_date(order.get("transaction_date") or order.get("delivery_date"))
+                    order_age_days = max(0, (today - order_date).days) if order_date else 0
+                    if order_age_days > customer_outstanding[customer]["max_overdue_days"]:
+                        customer_outstanding[customer]["max_overdue_days"] = order_age_days
             
             # Analyze each customer
             for customer, data in customer_outstanding.items():

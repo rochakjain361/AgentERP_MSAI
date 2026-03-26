@@ -1,12 +1,12 @@
 /**
- * ManagerIntelligence - AI-powered comprehensive dashboard for managers
+ * ManagerIntelligence - Business Health Dashboard for strategic decision-making
  * 
  * Uses Azure AI Foundry Agent to analyze real ERP data and provide:
- * - Executive summary
- * - Key findings with severity
- * - Risks and opportunities
- * - Prioritized recommendations
- * - Business health score
+ * - Monthly business health score
+ * - Strategic risks and opportunities
+ * - Revenue and payment health metrics
+ * - Operational efficiency insights
+ * - Actionable recommendations for long-term health
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
@@ -51,7 +51,7 @@ const HealthScoreGauge = ({ score }) => {
 
   return (
     <div className="flex flex-col items-center justify-center p-6 bg-white rounded-xl border border-gray-200">
-      <div className="text-sm text-gray-500 mb-2">Business Health Score</div>
+      <div className="text-sm text-gray-500 mb-2">Monthly Business Resilience Index</div>
       <div className={`text-5xl font-bold ${getColor()}`}>{score}</div>
       <div className={`text-sm font-medium ${getColor()} mt-1`}>{getLabel()}</div>
       <div className="w-full h-2 bg-gray-200 rounded-full mt-4">
@@ -136,10 +136,10 @@ const ManagerIntelligence = ({ onClose }) => {
       if (response.data.status === 'success') {
         setData(response.data);
       } else {
-        setError(response.data.message || 'Failed to load intelligence');
+        setError(response.data.message || 'Failed to load business health dashboard');
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to load AI intelligence');
+      setError(err.response?.data?.detail || 'Failed to load business health dashboard');
       console.error(err);
     } finally {
       setLoading(false);
@@ -162,11 +162,11 @@ const ManagerIntelligence = ({ onClose }) => {
           </div>
           <h3 className="text-lg font-semibold text-gray-900">AI Analysis in Progress</h3>
           <p className="text-gray-600 text-center">
-            Analyzing ERP data with Azure AI Foundry Agent...
+            Building your Monthly Business Health Report using live ERP signals...
           </p>
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-            <span>Gathering data from ERPNext</span>
+            <span>Collecting trend, risk, and resilience indicators</span>
           </div>
         </div>
       </div>
@@ -184,11 +184,11 @@ const ManagerIntelligence = ({ onClose }) => {
           <div>
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <Brain className="w-6 h-6 text-blue-600" />
-              AI Manager Intelligence
+              Business Health Dashboard
             </h2>
             <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
               <Zap className="w-4 h-4 text-amber-500" />
-              Powered by {data?.using_agent ? 'Azure AI Foundry Agent' : 'Azure OpenAI GPT-4o'}
+              Long-horizon guidance powered by {data?.using_agent ? 'Azure AI Foundry Agent' : 'Azure OpenAI GPT-4o'}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -306,7 +306,7 @@ const ManagerIntelligence = ({ onClose }) => {
                 <div className="bg-white rounded-xl border border-gray-200 p-4">
                   <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                    AI Recommendations
+                    Strategic Moves (P2 Horizon)
                   </h3>
                   <div className="space-y-3">
                     {(analysis.recommendations || []).length > 0 ? (
@@ -356,8 +356,8 @@ const ManagerIntelligence = ({ onClose }) => {
 
         {/* Footer */}
         <div className="bg-white px-6 py-3 border-t border-gray-200 text-center text-xs text-gray-500">
-          AI analysis generated at {data?.generated_at ? new Date(data.generated_at).toLocaleString() : 'N/A'} • 
-          {data?.metrics?.analysis_depth === 'comprehensive' ? ' Comprehensive analysis' : ' Basic analysis'}
+          Monthly Business Health Report generated at {data?.generated_at ? new Date(data.generated_at).toLocaleString() : 'N/A'} • 
+          {data?.metrics?.analysis_depth === 'comprehensive' ? ' Long-term trajectory review' : ' Snapshot review'}
         </div>
       </div>
     </div>

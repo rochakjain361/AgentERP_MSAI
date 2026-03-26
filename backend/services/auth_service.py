@@ -3,7 +3,7 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
-from passlib.context import CryptContext
+import bcrypt
 from jose import JWTError, jwt
 import logging
 
@@ -17,10 +17,6 @@ SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "agenterp-secret-key-change-in-pro
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
 class AuthService:
     """Service for authentication and user management with company support."""
     
@@ -29,10 +25,17 @@ class AuthService:
         return db["users"]
     
     def _hash_password(self, password: str) -> str:
-        return pwd_context.hash(password)
+        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     
     def _verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        return pwd_context.verify(plain_password, hashed_password)
+        try:
+            return bcrypt.checkpw(
+                plain_password.encode("utf-8"),
+                hashed_password.encode("utf-8")
+            )
+        except Exception as e:
+            logger.error(f"Password verification failed: {str(e)}")
+            return False
     
     def _create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         to_encode = data.copy()
@@ -105,7 +108,6 @@ class AuthService:
                 "viewer@global.com": {"name": "Global Viewer", "password": "viewer123", "role": UserRole.VIEWER, "company": "Global Industries Ltd"},
             }
             if not user and email in demo_users:
-                # Create a copy to avoid mutating the demo_users dict
                 user_data = {**demo_users[email], "email": email}
                 result = await self.register_user(UserCreate(**user_data))
                 if result["status"] == "success":

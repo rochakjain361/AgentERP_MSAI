@@ -219,7 +219,7 @@ async def ai_chat(request: ChatRequest, user: dict = Depends(get_current_user)):
                 transaction_date=parsed_intent.get("transaction_date", datetime.now().strftime("%Y-%m-%d")),
                 items=[SalesOrderItem(**item) for item in parsed_intent.get("items", [])]
             )
-            result = await erp_service.create_sales_order(sales_order)
+            result = await erp_service.create_sales_order(sales_order, company=user.get("company") if user else None)
             
             if result["status"] == "success" and user:
                 await audit_service.log_action(
@@ -363,7 +363,7 @@ async def agent_orchestration(request: AgentRequest, user: dict = Depends(requir
                 transaction_date=request.transaction_date or datetime.now().strftime("%Y-%m-%d"),
                 items=[SalesOrderItem(**item.model_dump()) for item in request.items]
             )
-            result = await erp_service.create_sales_order(sales_order)
+            result = await erp_service.create_sales_order(sales_order, company=user.get("company") if user else None)
             
             if result["status"] == "success":
                 await audit_service.log_action(

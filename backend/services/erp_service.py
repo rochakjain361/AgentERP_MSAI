@@ -126,7 +126,7 @@ class ERPNextService:
             logging.error(f"Error creating customer: {str(e)}")
             return {"status": "error", "message": f"Failed to create customer: {str(e)}"}
     
-    async def create_sales_order(self, sales_order: SalesOrder) -> Dict[str, Any]:
+    async def create_sales_order(self, sales_order: SalesOrder, company: str = None) -> Dict[str, Any]:
         """Create a sales order in ERPNext."""
         if self.mock_mode:
             await asyncio.sleep(1.0)
@@ -179,10 +179,10 @@ class ERPNextService:
                     "doctype": "Sales Order",
                     "naming_series": "SAL-ORD-",
                     "customer": sales_order.customer,
-                    "company": "India-Next (Demo)",
                     "transaction_date": sales_order.transaction_date,
                     "delivery_date": sales_order.transaction_date,
                     "currency": "INR",
+                    "company": company or "India-Next (Demo)",
                     "selling_price_list": "Standard Selling",
                     "price_list_currency": "INR",
                     "plc_conversion_rate": 1.0,

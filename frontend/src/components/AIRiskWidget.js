@@ -1,5 +1,5 @@
 /**
- * AIRiskWidget - Chat-embeddable AI Risk Analysis component
+ * AIRiskWidget - Chat-embeddable Revenue Risk Radar component
  * 
  * Displays risk analysis results inline within the chat flow.
  * RBAC: Only visible to Admin and Manager roles.
@@ -276,7 +276,7 @@ export const AIRiskResultsWidget = ({ data }) => {
 export const AIRiskLoadingWidget = () => (
   <div className="bg-white border border-gray-200 rounded-xl p-6 mt-3 shadow-sm flex flex-col items-center" data-testid="ai-risk-loading">
     <Loader2 className="w-8 h-8 text-amber-500 animate-spin mb-3" />
-    <p className="text-sm text-gray-600">Analyzing orders and classifying risks...</p>
+    <p className="text-sm text-gray-600">Scanning customer exposure and payment risk signals...</p>
   </div>
 );
 

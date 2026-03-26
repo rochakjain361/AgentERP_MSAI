@@ -41,7 +41,7 @@ async def create_customer_endpoint(customer: Customer, user: Optional[dict] = De
 @router.post("/sales-order")
 async def create_sales_order_endpoint(sales_order: SalesOrder, user: Optional[dict] = Depends(get_current_user)):
     """Create a new sales order."""
-    result = await erp_service.create_sales_order(sales_order)
+    result = await erp_service.create_sales_order(sales_order, company=user.get("company") if user else None)
 
     if result.get("status") == "success" and user:
         await audit_service.log_action(

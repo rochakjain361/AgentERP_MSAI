@@ -372,7 +372,7 @@ export const ChatInterface = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* AI Intelligence Dashboard - Managers Only */}
+            {/* Business Health Dashboard - Managers Only */}
             {isAuthenticated && isManager && (
               <button
                 onClick={() => setShowIntelligence(true)}
@@ -380,7 +380,7 @@ export const ChatInterface = () => {
                 data-testid="intelligence-btn"
               >
                 <Brain className="w-3.5 h-3.5" />
-                <span>AI Intelligence</span>
+                <span>Business Health</span>
               </button>
             )}
 
