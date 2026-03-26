@@ -5,6 +5,7 @@ from typing import Optional
 from models import Customer, SalesOrder
 from services.erp_service import erp_service
 from services.audit_service import audit_service
+from models.enterprise import AuditAction
 from routes.auth import get_current_user
 
 router = APIRouter(tags=["erp"])
@@ -27,7 +28,7 @@ async def create_customer_endpoint(customer: Customer, user: Optional[dict] = De
             user_id=user.get("id"),
             user_email=user.get("email"),
             user_role=user.get("role"),
-            action="create_customer",
+            action=AuditAction.CREATE_CUSTOMER,
             resource_type="Customer",
             resource_id=result.get("data", {}).get("name"),
             input_params={"customer_name": customer.customer_name, "customer_type": customer.customer_type},
@@ -47,7 +48,7 @@ async def create_sales_order_endpoint(sales_order: SalesOrder, user: Optional[di
             user_id=user.get("id"),
             user_email=user.get("email"),
             user_role=user.get("role"),
-            action="create_order",
+            action=AuditAction.CREATE_ORDER,
             resource_type="Sales Order",
             resource_id=result.get("data", {}).get("name"),
             input_params={"customer": sales_order.customer, "total": sales_order.items and sum([i.qty for i in sales_order.items])},

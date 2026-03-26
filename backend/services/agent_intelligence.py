@@ -20,7 +20,7 @@ from services.erp_entity_service import erp_entity_service
 logger = logging.getLogger(__name__)
 
 # Azure AI Foundry Agent configuration
-AZURE_AGENT_ENDPOINT = os.environ.get("AZURE_AGENT_ENDPOINT")
+AZURE_AGENT_ENDPOINT = os.environ.get("AZURE_AGENT_ENDPOINT") or os.environ.get("AZURE_AI_AGENT_RESPONSES_ENDPOINT")
 AZURE_OPENAI_API_KEY = os.environ.get("AZURE_OPENAI_API_KEY")
 AZURE_AGENT_API_VERSION = os.environ.get("AZURE_AGENT_API_VERSION", "2025-11-15-preview")
 
@@ -52,50 +52,61 @@ class AgentIntelligenceService:
     async def _call_agent(self, system_prompt: str, user_prompt: str) -> str:
         """Call Azure AI Foundry Agent."""
         try:
-            url = f"{AZURE_AGENT_ENDPOINT}?api-version={AZURE_AGENT_API_VERSION}"
+            # Build URL - endpoint may already include api-version
+            url = AZURE_AGENT_ENDPOINT
+            if "api-version" not in url:
+                url = f"{url}?api-version={AZURE_AGENT_API_VERSION}"
             
             headers = {
                 "Content-Type": "application/json",
-                "api-key": AZURE_OPENAI_API_KEY
+                "api-key": AZURE_OPENAI_API_KEY,
+                "User-Agent": "AgentERP/2.0"
             }
             
+            # Azure AI Foundry Agent expects messages format similar to OpenAI
             payload = {
-                "input": f"{system_prompt}\n\n{user_prompt}",
-                "model": "gpt-4o"
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                "temperature": 0.3,
+                "max_tokens": 2000
             }
             
-            async with httpx.AsyncClient(timeout=90.0) as client:
+            logger.info(f"Calling Azure AI Foundry Agent at {url[:80]}...")
+            
+            async with httpx.AsyncClient(timeout=90.0, verify=False) as client:
                 response = await client.post(url, json=payload, headers=headers)
+                
+                logger.info(f"Agent response status: {response.status_code}")
                 
                 if response.status_code == 200:
                     data = response.json()
                     
-                    # Handle Azure AI Foundry Agent response format
-                    # The agent returns a complex structure with messages
-                    if isinstance(data, list):
-                        for item in data:
+                    # Handle Azure AI Foundry Agent response format (messages)
+                    if "output" in data and isinstance(data["output"], list):
+                        for item in data["output"]:
                             if isinstance(item, dict) and "content" in item:
                                 for content in item.get("content", []):
-                                    if content.get("type") == "output_text":
+                                    if isinstance(content, dict) and content.get("type") == "text":
                                         return content.get("text", "")
                     
-                    # Handle different response formats
-                    if "output_text" in data:
-                        return data["output_text"]
-                    elif "choices" in data:
-                        return data["choices"][0]["message"]["content"]
-                    elif "output" in data:
-                        if isinstance(data["output"], list):
-                            for item in data["output"]:
-                                if isinstance(item, dict) and "content" in item:
-                                    for content in item.get("content", []):
-                                        if content.get("type") == "output_text":
-                                            return content.get("text", "")
-                        return str(data["output"])
-                    else:
-                        return json.dumps(data)
+                    # Handle OpenAI-format response (messages/choices)
+                    if "choices" in data and len(data["choices"]) > 0:
+                        choice = data["choices"][0]
+                        if "message" in choice:
+                            return choice["message"].get("content", "")
+                    
+                    # Fallback: return any text-like content
+                    if "result" in data:
+                        return str(data["result"])
+                    
+                    logger.warning(f"Unexpected agent response format: {str(data)[:200]}")
+                    return str(data)
+                    
                 else:
-                    logger.warning(f"Agent returned {response.status_code}, falling back to OpenAI")
+                    logger.warning(f"Agent returned {response.status_code}: {response.text[:200]}")
+                    logger.info("Falling back to Azure OpenAI...")
                     return await self._call_openai(system_prompt, user_prompt)
                     
         except Exception as e:

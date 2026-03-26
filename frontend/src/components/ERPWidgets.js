@@ -1,10 +1,13 @@
 /**
  * ERP Widgets - Components for displaying ERP data
  */
-import React from 'react';
-import { ExternalLink } from 'lucide-react';
+import React, { useState } from 'react';
+import { ExternalLink, Zap, Loader2 } from 'lucide-react';
 import { ERP_BASE_URL, STATUS_COLORS } from '../lib/constants';
 import { DashboardView } from './DashboardView';
+import { AIRiskResultsWidget, AIRiskLoadingWidget, AIRiskErrorWidget } from './AIRiskWidget';
+import { aiAnalysisApi } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 
 // Status Badge Component
 export const StatusBadge = ({ status }) => {
@@ -121,114 +124,219 @@ const CustomerWidget = ({ data }) => (
   </div>
 );
 
-// Sales Orders List Widget
-const SalesOrdersListWidget = ({ orders }) => (
-  <div className="bg-card border border-border rounded-xl p-4 mt-3 shadow-sm">
-    <div className="flex items-center justify-between mb-3">
-      <h4 className="font-semibold">Recent Sales Orders</h4>
-      <a 
-        href={`${ERP_BASE_URL}/app/sales-order`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-1 text-xs text-primary hover:underline"
-      >
-        View All <ExternalLink className="w-3 h-3" />
-      </a>
-    </div>
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border">
-            <th className="text-left py-2 font-medium text-muted-foreground">Order</th>
-            <th className="text-left py-2 font-medium text-muted-foreground">Customer</th>
-            <th className="text-left py-2 font-medium text-muted-foreground">Date</th>
-            <th className="text-right py-2 font-medium text-muted-foreground">Amount</th>
-            <th className="text-left py-2 font-medium text-muted-foreground">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map((order, idx) => (
-            <tr key={idx} className="border-b border-border/50">
-              <td className="py-2">
-                <a 
-                  href={`${ERP_BASE_URL}/app/sales-order/${order.name}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline font-mono text-xs"
-                >
-                  {order.name}
-                </a>
-              </td>
-              <td className="py-2">
-                <a 
-                  href={`${ERP_BASE_URL}/app/customer/${order.customer}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-primary"
-                >
-                  {order.customer}
-                </a>
-              </td>
-              <td className="py-2 text-muted-foreground">{order.transaction_date}</td>
-              <td className="py-2 text-right font-medium">₹{parseFloat(order.grand_total || 0).toLocaleString()}</td>
-              <td className="py-2"><StatusBadge status={order.status} /></td>
+// Sales Orders List Widget with AI Analysis capability
+const SalesOrdersListWidget = ({ orders, showAnalysisButton = true }) => {
+  const { user, isManager } = useAuth();
+  const [analysisState, setAnalysisState] = useState({ loading: false, data: null, error: null });
+  
+  const canRunAnalysis = user && isManager && showAnalysisButton;
+  
+  const handleRunAnalysis = async () => {
+    setAnalysisState({ loading: true, data: null, error: null });
+    try {
+      const response = await aiAnalysisApi.analyzeOrders();
+      if (response.data.status === 'success') {
+        setAnalysisState({ loading: false, data: response.data, error: null });
+      } else {
+        setAnalysisState({ loading: false, data: null, error: response.data.message || 'Analysis failed' });
+      }
+    } catch (err) {
+      const errorMsg = err.response?.status === 403 
+        ? 'Access denied. AI Analysis requires Admin or Manager role.'
+        : (err.response?.data?.detail || 'Failed to run analysis');
+      setAnalysisState({ loading: false, data: null, error: errorMsg });
+    }
+  };
+  
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 mt-3 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-semibold">Recent Sales Orders</h4>
+        <div className="flex items-center gap-2">
+          {/* AI Analysis Button - Only for Admin/Manager */}
+          {canRunAnalysis && !analysisState.data && (
+            <button
+              onClick={handleRunAnalysis}
+              disabled={analysisState.loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50"
+              data-testid="run-ai-analysis-btn"
+            >
+              {analysisState.loading ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Zap className="w-3 h-3" />
+              )}
+              Run AI Analysis
+            </button>
+          )}
+          <a 
+            href={`${ERP_BASE_URL}/app/sales-order`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            View All <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+      </div>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="text-left py-2 font-medium text-muted-foreground">Order</th>
+              <th className="text-left py-2 font-medium text-muted-foreground">Customer</th>
+              <th className="text-left py-2 font-medium text-muted-foreground">Date</th>
+              <th className="text-right py-2 font-medium text-muted-foreground">Amount</th>
+              <th className="text-left py-2 font-medium text-muted-foreground">Status</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {orders.map((order, idx) => (
+              <tr key={idx} className="border-b border-border/50">
+                <td className="py-2">
+                  <a 
+                    href={`${ERP_BASE_URL}/app/sales-order/${order.name}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline font-mono text-xs"
+                  >
+                    {order.name}
+                  </a>
+                </td>
+                <td className="py-2">
+                  <a 
+                    href={`${ERP_BASE_URL}/app/customer/${order.customer}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-primary"
+                  >
+                    {order.customer}
+                  </a>
+                </td>
+                <td className="py-2 text-muted-foreground">{order.transaction_date}</td>
+                <td className="py-2 text-right font-medium">₹{parseFloat(order.grand_total || 0).toLocaleString()}</td>
+                <td className="py-2"><StatusBadge status={order.status} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      
+      {/* AI Analysis Results - Inline in chat */}
+      {analysisState.loading && <AIRiskLoadingWidget />}
+      {analysisState.error && (
+        <AIRiskErrorWidget 
+          error={analysisState.error} 
+          onRetry={handleRunAnalysis} 
+        />
+      )}
+      {analysisState.data && <AIRiskResultsWidget data={analysisState.data} />}
     </div>
-  </div>
-);
+  );
+};
 
-// Invoices List Widget
-const InvoicesListWidget = ({ invoices }) => (
-  <div className="bg-card border border-border rounded-xl p-4 mt-3 shadow-sm">
-    <div className="flex items-center justify-between mb-3">
-      <h4 className="font-semibold">Recent Invoices</h4>
-      <a 
-        href={`${ERP_BASE_URL}/app/sales-invoice`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-1 text-xs text-primary hover:underline"
-      >
-        View All <ExternalLink className="w-3 h-3" />
-      </a>
-    </div>
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border">
-            <th className="text-left py-2 font-medium text-muted-foreground">Invoice</th>
-            <th className="text-left py-2 font-medium text-muted-foreground">Customer</th>
-            <th className="text-left py-2 font-medium text-muted-foreground">Date</th>
-            <th className="text-right py-2 font-medium text-muted-foreground">Amount</th>
-            <th className="text-left py-2 font-medium text-muted-foreground">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {invoices.map((invoice, idx) => (
-            <tr key={idx} className="border-b border-border/50">
-              <td className="py-2">
-                <a 
-                  href={`${ERP_BASE_URL}/app/sales-invoice/${invoice.name}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline font-mono text-xs"
-                >
-                  {invoice.name}
-                </a>
-              </td>
-              <td className="py-2">{invoice.customer}</td>
-              <td className="py-2 text-muted-foreground">{invoice.posting_date}</td>
-              <td className="py-2 text-right font-medium">₹{parseFloat(invoice.grand_total || 0).toLocaleString()}</td>
-              <td className="py-2"><StatusBadge status={invoice.status} /></td>
+// Invoices List Widget with AI Analysis capability
+const InvoicesListWidget = ({ invoices, showAnalysisButton = true }) => {
+  const { user, isManager } = useAuth();
+  const [analysisState, setAnalysisState] = useState({ loading: false, data: null, error: null });
+  
+  const canRunAnalysis = user && isManager && showAnalysisButton;
+  
+  const handleRunAnalysis = async () => {
+    setAnalysisState({ loading: true, data: null, error: null });
+    try {
+      const response = await aiAnalysisApi.analyzeOrders();
+      if (response.data.status === 'success') {
+        setAnalysisState({ loading: false, data: response.data, error: null });
+      } else {
+        setAnalysisState({ loading: false, data: null, error: response.data.message || 'Analysis failed' });
+      }
+    } catch (err) {
+      const errorMsg = err.response?.status === 403 
+        ? 'Access denied. AI Analysis requires Admin or Manager role.'
+        : (err.response?.data?.detail || 'Failed to run analysis');
+      setAnalysisState({ loading: false, data: null, error: errorMsg });
+    }
+  };
+  
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 mt-3 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-semibold">Recent Invoices</h4>
+        <div className="flex items-center gap-2">
+          {/* AI Analysis Button - Only for Admin/Manager */}
+          {canRunAnalysis && !analysisState.data && (
+            <button
+              onClick={handleRunAnalysis}
+              disabled={analysisState.loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50"
+              data-testid="run-ai-analysis-invoices-btn"
+            >
+              {analysisState.loading ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Zap className="w-3 h-3" />
+              )}
+              Run AI Analysis
+            </button>
+          )}
+          <a 
+            href={`${ERP_BASE_URL}/app/sales-invoice`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            View All <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="text-left py-2 font-medium text-muted-foreground">Invoice</th>
+              <th className="text-left py-2 font-medium text-muted-foreground">Customer</th>
+              <th className="text-left py-2 font-medium text-muted-foreground">Date</th>
+              <th className="text-right py-2 font-medium text-muted-foreground">Amount</th>
+              <th className="text-left py-2 font-medium text-muted-foreground">Status</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {invoices.map((invoice, idx) => (
+              <tr key={idx} className="border-b border-border/50">
+                <td className="py-2">
+                  <a 
+                    href={`${ERP_BASE_URL}/app/sales-invoice/${invoice.name}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline font-mono text-xs"
+                  >
+                    {invoice.name}
+                  </a>
+                </td>
+                <td className="py-2">{invoice.customer}</td>
+                <td className="py-2 text-muted-foreground">{invoice.posting_date}</td>
+                <td className="py-2 text-right font-medium">₹{parseFloat(invoice.grand_total || 0).toLocaleString()}</td>
+                <td className="py-2"><StatusBadge status={invoice.status} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      
+      {/* AI Analysis Results - Inline */}
+      {analysisState.loading && <AIRiskLoadingWidget />}
+      {analysisState.error && (
+        <AIRiskErrorWidget 
+          error={analysisState.error} 
+          onRetry={handleRunAnalysis} 
+        />
+      )}
+      {analysisState.data && <AIRiskResultsWidget data={analysisState.data} />}
     </div>
-  </div>
-);
+  );
+};
 
 // Customers List Widget
 const CustomersListWidget = ({ customers }) => (

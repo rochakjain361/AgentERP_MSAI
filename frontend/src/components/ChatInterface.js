@@ -76,6 +76,7 @@ export const ChatInterface = () => {
   const { erpStatus, checkHealth } = useHealth();
   const {
     messages,
+    setMessages,
     chatSessions,
     currentSessionId,
     setCurrentSessionId,
@@ -121,6 +122,59 @@ export const ChatInterface = () => {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Handle Stop Sales Decision workflow - listen for custom event from AIRiskWidget
+  useEffect(() => {
+    const handleStopSalesDecision = (event) => {
+      const { customer, amount_due, days_overdue, order_id, risk_level, reasoning, annualized_risk } = event.detail;
+      
+      // Add AI message explaining the high-impact action
+      const aiDecisionMessage = {
+        role: 'assistant',
+        content: `I see you're considering stopping future sales for **${customer}**. This is a significant decision that could impact your business relationship.\n\nLet me help you understand the implications and choose the best course of action.`,
+        type: 'stop_sales_decision',
+        decision_data: {
+          customer,
+          amount_due,
+          days_overdue,
+          order_id,
+          risk_level,
+          reasoning,
+          annualized_risk
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages(prev => [...prev, aiDecisionMessage]);
+    };
+
+    window.addEventListener('ai:stop-sales-decision', handleStopSalesDecision);
+    return () => window.removeEventListener('ai:stop-sales-decision', handleStopSalesDecision);
+  }, [setMessages]);
+
+  // Handle Stop Sales action completion - add confirmation message to chat
+  const handleStopSalesActionComplete = useCallback((actionResult) => {
+    const { action, customer, amount_due, annualized_risk, result } = actionResult;
+    
+    // Add AI confirmation message
+    const confirmationMessage = {
+      role: 'assistant',
+      content: action === 'stop_sales'
+        ? `I've blocked future sales for **${customer}**. The sales team has been notified and this action has been logged to the audit trail.\n\n**Revenue Impact:** Estimated annualized revenue at risk is ₹${annualized_risk?.toLocaleString()}.\n\nYou may want to schedule a follow-up review in 30 days to reassess the customer relationship.`
+        : `I've scheduled a Senior Management Review for **${customer}**. The management team will receive a notification with the complete payment history and risk assessment.\n\nExpect a decision within 2-3 business days.`,
+      type: 'action_confirmation',
+      confirmation_data: {
+        action,
+        customer,
+        amount_due,
+        annualized_risk,
+        result
+      },
+      timestamp: new Date().toISOString()
+    };
+    
+    setMessages(prev => [...prev, confirmationMessage]);
+  }, [setMessages]);
 
   // Handle send message
   const handleSendMessage = useCallback(async () => {
@@ -473,7 +527,11 @@ export const ChatInterface = () => {
             )}
           </div>
         ) : (
-          <ChatMessages messages={messages} isLoading={isLoading} />
+          <ChatMessages 
+            messages={messages} 
+            isLoading={isLoading}
+            onStopSalesActionComplete={handleStopSalesActionComplete}
+          />
         )}
 
         {/* Input Area */}

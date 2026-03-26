@@ -155,4 +155,21 @@ export const intelligenceApi = {
   healthCheck: () => apiClient.get('/intelligence/health-check'),
 };
 
+// AI Risk Analysis API - Order risk classification and actions
+export const aiAnalysisApi = {
+  // Check if user has access to AI Analysis
+  checkAccess: () => apiClient.get('/ai-analysis/access-check'),
+  
+  // Analyze all orders for risk (Admin/Manager only)
+  analyzeOrders: () => apiClient.get('/ai-analysis/analyze'),
+  
+  // Execute a suggested action (Admin/Manager only)
+  executeAction: (actionId, customer, orderAnalysisId) =>
+    apiClient.post('/ai-analysis/execute', {
+      action_id: actionId,
+      customer: customer,
+      order_analysis_id: orderAnalysisId
+    }),
+};
+
 export default apiClient;

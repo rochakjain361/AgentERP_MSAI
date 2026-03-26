@@ -32,6 +32,7 @@ from routes.approvals import router as approvals_router
 from routes.insights import router as insights_router
 from routes.reasoning import router as reasoning_router
 from routes.intelligence import router as intelligence_router
+from routes.ai_analysis import router as ai_analysis_router
 from database import close_db
 from config import CORS_ORIGINS
 
@@ -54,6 +55,7 @@ app.include_router(approvals_router, prefix="/api")
 app.include_router(insights_router, prefix="/api")
 app.include_router(reasoning_router, prefix="/api")
 app.include_router(intelligence_router, prefix="/api")
+app.include_router(ai_analysis_router, prefix="/api")
 
 # Configure CORS
 app.add_middleware(

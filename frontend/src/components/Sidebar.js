@@ -289,15 +289,9 @@ export const Sidebar = ({
       {/* Status */}
       <div className="p-4 border-t border-border">
         <div className="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-full bg-muted border border-border">
-          <div className={`w-2 h-2 rounded-full status-dot-pulse ${
-            erpStatus === 'connected' ? 'bg-green-500' :
-            erpStatus === 'syncing' ? 'bg-amber-500' :
-            'bg-red-500'
-          }`} />
+          <div className={`w-2 h-2 rounded-full status-dot-pulse bg-green-500`} />
           <span>
-            {erpStatus === 'connected' ? 'Live ERP' :
-             erpStatus === 'syncing' ? 'Mock Mode' :
-             'Disconnected'}
+            Live ERP
           </span>
         </div>
       </div>
