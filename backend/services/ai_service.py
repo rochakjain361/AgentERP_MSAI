@@ -18,7 +18,6 @@ SYSTEM_PROMPT = """You are AgentERP AI assistant. Parse user requests and return
 
 Actions: check_customer, create_customer, create_sales_order, list_sales_orders, list_invoices, list_customers, dashboard_stats, comprehensive_analytics, general_query
 
-Customers: Grant Plastics Ltd., West View Software Ltd., Palmer Productions Ltd.
 Items: SKU001-SKU005
 
 Return JSON only:

@@ -19,7 +19,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { Menu, Command, ExternalLink, Download, Trash2, History, User, LogOut, Shield, Clock, Activity, Building2, Sparkles } from 'lucide-react';
+import { Menu, Command, ExternalLink, Download, Trash2, History, User, LogOut, Shield, Clock, Activity, Building2, Sparkles, Brain } from 'lucide-react';
 
 // Import components
 import { Sidebar } from './Sidebar';
@@ -35,6 +35,8 @@ import ChatSuggestions from './ChatSuggestions';
 import ApprovalPanel from './ApprovalPanel';
 import AuditLog from './AuditLog';
 import BusinessImpact from './BusinessImpact';
+import TodaysPriorities from './TodaysPriorities';
+import ManagerIntelligence from './ManagerIntelligence';
 
 // Import hooks and context
 import { useChat } from '../hooks/useChat';
@@ -62,6 +64,8 @@ export const ChatInterface = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showApprovalPanel, setShowApprovalPanel] = useState(false);
   const [showAuditLog, setShowAuditLog] = useState(false);
+  const [showPriorities, setShowPriorities] = useState(false);
+  const [showIntelligence, setShowIntelligence] = useState(false);
   const [toolResult, setToolResult] = useState(null);
   const [isToolLoading, setIsToolLoading] = useState(false);
   
@@ -311,37 +315,41 @@ export const ChatInterface = () => {
             >
               <Menu className="w-5 h-5" />
             </button>
-            
-            <button 
-              onClick={() => setShowChatHistory(prev => !prev)}
-              className="hidden md:flex items-center gap-2 p-2 hover:bg-muted rounded-lg text-sm"
-              data-testid="toggle-history-btn"
-            >
-              <History className="w-4 h-4" />
-              <span>Chat History</span>
-            </button>
-            
-            <button 
-              onClick={createNewChat}
-              className="hidden md:flex items-center gap-2 p-2 hover:bg-muted rounded-lg text-sm text-primary"
-              data-testid="new-chat-btn"
-            >
-              <span className="text-lg">+</span>
-              <span>New Chat</span>
-            </button>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* AI Intelligence Dashboard - Managers Only */}
+            {isAuthenticated && isManager && (
+              <button
+                onClick={() => setShowIntelligence(true)}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                data-testid="intelligence-btn"
+              >
+                <Brain className="w-3.5 h-3.5" />
+                <span>AI Intelligence</span>
+              </button>
+            )}
+
+            {/* AI Priorities Button */}
+            {isAuthenticated && (
+              <button
+                onClick={() => setShowPriorities(true)}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+                data-testid="priorities-btn"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>AI Priorities</span>
+              </button>
+            )}
+
             {/* Enterprise Features Buttons */}
             {isAuthenticated && isManager && (
               <button
                 onClick={() => setShowApprovalPanel(true)}
-                className="group flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 text-amber-200 hover:from-amber-500/20 hover:to-orange-500/20 hover:border-amber-500/40 transition-all duration-200"
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
                 data-testid="approvals-btn"
               >
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
-                  <Clock className="w-3 h-3 text-white" />
-                </div>
+                <Clock className="w-3.5 h-3.5" />
                 <span>Approvals</span>
               </button>
             )}
@@ -349,12 +357,10 @@ export const ChatInterface = () => {
             {isAuthenticated && (
               <button
                 onClick={() => setShowAuditLog(true)}
-                className="group flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20 text-violet-200 hover:from-violet-500/20 hover:to-purple-500/20 hover:border-violet-500/40 transition-all duration-200"
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
                 data-testid="audit-log-btn"
               >
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center">
-                  <Activity className="w-3 h-3 text-white" />
-                </div>
+                <Activity className="w-3.5 h-3.5" />
                 <span>Activity</span>
               </button>
             )}
@@ -378,22 +384,6 @@ export const ChatInterface = () => {
               <span>Open ERPNext</span>
               <ExternalLink className="w-3 h-3" />
             </a>
-            
-            <button
-              onClick={exportChat}
-              className="p-2 hover:bg-muted rounded-lg"
-              title="Export chat"
-            >
-              <Download className="w-4 h-4" />
-            </button>
-            
-            <button
-              onClick={clearChat}
-              className="p-2 hover:bg-muted rounded-lg text-destructive"
-              title="Clear chat"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
 
             {/* User Menu */}
             {isAuthenticated ? (
@@ -547,6 +537,16 @@ export const ChatInterface = () => {
         isOpen={showAuditLog}
         onClose={() => setShowAuditLog(false)}
       />
+
+      {/* Today's Priorities - AI Reasoning Panel */}
+      {showPriorities && (
+        <TodaysPriorities onClose={() => setShowPriorities(false)} />
+      )}
+
+      {/* Manager Intelligence Dashboard - AI-powered */}
+      {showIntelligence && (
+        <ManagerIntelligence onClose={() => setShowIntelligence(false)} />
+      )}
     </div>
   );
 };

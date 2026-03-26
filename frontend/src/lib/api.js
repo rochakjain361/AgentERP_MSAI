@@ -85,8 +85,7 @@ export const approvalsApi = {
 
 // Audit API functions
 export const auditApi = {
-  getLogs: (limit = 50, offset = 0, filters = {}) => 
-    apiClient.get('/audit', { params: { limit, offset, ...filters } }),
+  getLogs: (params = {}) => apiClient.get('/audit', { params }),
   getRecent: (limit = 10) => apiClient.get('/audit/recent', { params: { limit } }),
   getSummary: (userId) => apiClient.get(`/audit/summary/${userId}`),
   getStats: () => apiClient.get('/audit/stats'),
@@ -117,6 +116,43 @@ export const entityApi = {
     apiClient.post('/entity', { action: 'update', doctype, name, data }),
   delete: (doctype, name) =>
     apiClient.post('/entity', { action: 'delete', doctype, name }),
+};
+
+// Reasoning API - Proactive Analysis & Workflow Execution
+export const reasoningApi = {
+  // Get today's priorities (all situations requiring attention)
+  getPriorities: () => apiClient.get('/reasoning/priorities'),
+  
+  // Get payment delay analysis (hero scenario)
+  getPaymentDelays: () => apiClient.get('/reasoning/payment-delays'),
+  
+  // Execute a sequence of actions
+  executeSequence: (situationId, situationType, selectedActions, contextData) =>
+    apiClient.post('/reasoning/execute', {
+      situation_id: situationId,
+      situation_type: situationType,
+      selected_actions: selectedActions,
+      context_data: contextData
+    }),
+  
+  // Get workflow execution status
+  getWorkflowStatus: (workflowId) => apiClient.get(`/reasoning/workflow/${workflowId}`),
+};
+
+// Intelligence API - AI-powered Manager Dashboard
+export const intelligenceApi = {
+  // Get comprehensive AI-powered intelligence dashboard
+  getDashboard: () => apiClient.get('/intelligence/dashboard'),
+  
+  // Analyze a specific situation with AI
+  analyzeSituation: (situationType, contextData) =>
+    apiClient.post('/intelligence/analyze', {
+      situation_type: situationType,
+      context_data: contextData
+    }),
+  
+  // Check AI health
+  healthCheck: () => apiClient.get('/intelligence/health-check'),
 };
 
 export default apiClient;

@@ -25,7 +25,7 @@ export const ChatMessages = ({ messages, isLoading }) => {
             {[
               'Show me the dashboard',
               'List recent sales orders',
-              'Check customer Grant Plastics Ltd.',
+              'Show me all customers',
               'Create a new sales order'
             ].map((suggestion, idx) => (
               <span

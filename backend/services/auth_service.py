@@ -105,19 +105,12 @@ class AuthService:
                 "viewer@global.com": {"name": "Global Viewer", "password": "viewer123", "role": UserRole.VIEWER, "company": "Global Industries Ltd"},
             }
             if not user and email in demo_users:
-                user_data = demo_users[email]
-                user_data["email"] = email
+                # Create a copy to avoid mutating the demo_users dict
+                user_data = {**demo_users[email], "email": email}
                 result = await self.register_user(UserCreate(**user_data))
                 if result["status"] == "success":
                     user = await self.users_collection.find_one({"email": email})
                     logger.info(f"Created demo user: {email}")
-                if email in demo_users:
-                    user_data = demo_users[email]
-                    user_data["email"] = email
-                    result = await self.register_user(UserCreate(**user_data))
-                    if result["status"] == "success":
-                        user = await self.users_collection.find_one({"email": email})
-                        logger.info(f"Created demo user: {email}")
             
             if not user:
                 return {"status": "error", "message": "Invalid email or password"}

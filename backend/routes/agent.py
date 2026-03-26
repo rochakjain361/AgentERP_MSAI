@@ -12,6 +12,8 @@ from services.approval_service import approval_service
 from models.enterprise import AuditAction
 from routes.auth import get_current_user, require_auth
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(tags=["agent"])
 
 
@@ -190,15 +192,30 @@ async def ai_chat(request: ChatRequest, user: dict = Depends(get_current_user)):
                     data={"approval_id": approval_result.get("approval_id")}
                 )
             
-            customer_check = await erp_service.check_customer(parsed_intent.get("customer"))
+            customer_name = parsed_intent.get("customer")
+            
+            # Check if customer exists
+            customer_check = await erp_service.check_customer(customer_name)
+            
+            # If customer doesn't exist, create it automatically
             if not customer_check.get("exists"):
-                return AgentResponse(
-                    status="error",
-                    message=f"Customer '{parsed_intent.get('customer')}' not found. Please check the customer name or create them first."
+                logger.info(f"Customer '{customer_name}' not found. Creating automatically...")
+                customer = Customer(
+                    doctype="Customer",
+                    customer_name=customer_name,
+                    customer_type="Company",
+                    territory="India"
                 )
+                create_result = await erp_service.create_customer(customer)
+                if create_result["status"] != "success":
+                    return AgentResponse(
+                        status="error",
+                        message=f"Failed to create customer '{customer_name}'. {create_result.get('message', '')}"
+                    )
+                logger.info(f"✓ Customer '{customer_name}' created successfully")
             
             sales_order = SalesOrder(
-                customer=parsed_intent.get("customer"),
+                customer=customer_name,
                 transaction_date=parsed_intent.get("transaction_date", datetime.now().strftime("%Y-%m-%d")),
                 items=[SalesOrderItem(**item) for item in parsed_intent.get("items", [])]
             )
@@ -233,6 +250,19 @@ async def ai_chat(request: ChatRequest, user: dict = Depends(get_current_user)):
         
         elif intent == "create_customer":
             customer_data = parsed_intent.get("customer_data", {})
+
+            # Support chat-style fields with names like customer or name
+            if not customer_data.get("customer_name"):
+                customer_data["customer_name"] = parsed_intent.get("customer") or parsed_intent.get("name")
+            if not customer_data.get("customer_name") and parsed_intent.get("customer_data"):
+                # map any 'name' subfield
+                customer_data["customer_name"] = parsed_intent.get("customer_data", {}).get("name")
+
+            if not customer_data.get("customer_type"):
+                customer_data["customer_type"] = parsed_intent.get("customer_type", "Company")
+            if not customer_data.get("territory"):
+                customer_data["territory"] = parsed_intent.get("territory", "India")
+
             customer_obj = Customer(**customer_data)
             result = await erp_service.create_customer(customer_obj)
             

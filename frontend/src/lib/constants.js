@@ -3,12 +3,12 @@
  */
 
 // ERPNext base URL for direct links
-export const ERP_BASE_URL = 'https://india-next.m.frappe.cloud';
+export const ERP_BASE_URL = 'https://codeogs-erpnext.m.frappe.cloud';
 
 // Quick action commands
 export const QUICK_ACTIONS = [
   { icon: '📊', text: 'Dashboard Statistics', action: 'Show me the dashboard statistics' },
-  { icon: '➕', text: 'Create New Order', action: 'Create a sales order for Grant Plastics Ltd for 2 units of SKU001' },
+  { icon: '➕', text: 'Create New Order', action: 'Create a new sales order' },
   { icon: '📋', text: 'List Sales Orders', action: 'List all recent sales orders' },
   { icon: '👥', text: 'View Customers', action: 'Show me all customers in the system' },
   { icon: '💰', text: 'Show Invoices', action: 'Show me all invoices' },
@@ -28,7 +28,7 @@ export const ERP_LINKS = [
 // Sidebar quick actions
 export const SIDEBAR_ACTIONS = {
   quickActions: [
-    { label: '+ New Order', prompt: 'Create a sales order for Grant Plastics Ltd for 2 units of SKU001' },
+    { label: '+ New Order', prompt: 'Create a new sales order' },
     { label: 'Sales Orders', prompt: 'List all recent sales orders' },
     { label: 'Customers', prompt: 'Show me all customers in the system' },
     { label: 'Invoices', prompt: 'Show me all invoices' },
