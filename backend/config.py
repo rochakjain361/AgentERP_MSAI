@@ -5,6 +5,8 @@ ERP_URL = os.environ.get('ERP_URL', 'https://demo.erpnext.com')
 ERP_API_KEY = os.environ.get('ERP_API_KEY', 'DEMO_KEY')
 ERP_API_SECRET = os.environ.get('ERP_API_SECRET', 'DEMO_SECRET')
 ERP_MOCK_MODE = os.environ.get('ERP_MOCK_MODE', 'true').lower() == 'true'
+ERP_COMPANY = os.environ.get('ERP_COMPANY', '').strip()
+ERP_WAREHOUSE = os.environ.get('ERP_WAREHOUSE', '').strip()
 
 # Azure AI Agent Configuration (Updated AI Service)
 AZURE_AI_AGENT_ACTIVITY_ENDPOINT = os.environ.get('AZURE_AI_AGENT_ACTIVITY_ENDPOINT', '')

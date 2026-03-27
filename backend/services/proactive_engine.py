@@ -272,9 +272,9 @@ class ProactiveEngine:
                     "projected_monthly_savings_inr": round(projected_monthly_savings_inr, 0)
                 },
                 "summary": {
-                    "headline": "5x faster issue handling",
+                    "headline": "Credit-risk response time reduced by 80%",
                     "time_saved": "~3,480 hours/year saved",
-                    "cost_saved": "₹77L annualized exposure protected"
+                    "cost_saved": "₹21.5 Cr under proactive watch"
                 }
             }
             

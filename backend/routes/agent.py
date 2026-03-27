@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends, Header
 from datetime import datetime
 from typing import Optional
 import logging
+import re
 
 from models import ChatRequest, AgentRequest, AgentResponse, Customer, SalesOrder, SalesOrderItem
 from services.erp_service import erp_service
@@ -54,6 +55,44 @@ VIEW_INTENTS = [
     "check_customer", "dashboard_stats", "comprehensive_analytics",
     "general_query"
 ]
+
+
+def _parse_direct_sales_order_command(message: str) -> Optional[dict]:
+    """Parse common direct sales-order phrasing without relying on LLM output."""
+    pattern = re.compile(
+        r"create\s+a\s+sales\s+order\s+for\s+(?P<customer>.+?)\s+for\s+(?P<items>.+?)(?:\s+with\s+total\s+amount\s+(?P<total>[0-9]+(?:\.[0-9]+)?))?\s*$",
+        re.IGNORECASE,
+    )
+    match = pattern.search(message.strip())
+    if not match:
+        return None
+
+    customer = match.group("customer").strip()
+    items_text = match.group("items")
+    total_text = match.group("total")
+
+    item_matches = re.findall(r"(\d+)\s+units?\s+of\s+([A-Za-z0-9_-]+)", items_text, flags=re.IGNORECASE)
+    if not item_matches:
+        return None
+
+    items = []
+    for qty_str, item_code in item_matches:
+        items.append({
+            "item_code": item_code.upper(),
+            "qty": int(qty_str)
+        })
+
+    parsed = {
+        "intent": "create_sales_order",
+        "customer": customer,
+        "items": items,
+        "natural_response": f"Creating sales order for {customer}."
+    }
+
+    if total_text:
+        parsed["total_amount"] = float(total_text)
+
+    return parsed
 
 
 @router.post("/chat", response_model=AgentResponse)
@@ -128,13 +167,18 @@ async def ai_chat(request: ChatRequest, user: dict = Depends(get_current_user)):
                     )
                 return AgentResponse(status="success", message=stats_message, data={"type": "dashboard", **stats})
         
-        # Use AI to parse natural language
-        ai_result = await ai_service.parse_natural_language(request.message, request.conversation_history)
-        
-        if ai_result["status"] == "error":
-            return AgentResponse(status="error", message=ai_result["message"])
-        
-        parsed_intent = ai_result["parsed_intent"]
+        # First, try deterministic parser for common direct sales-order commands.
+        parsed_intent = _parse_direct_sales_order_command(request.message)
+
+        # Fall back to AI parsing for all other requests.
+        if parsed_intent is None:
+            ai_result = await ai_service.parse_natural_language(request.message, request.conversation_history)
+
+            if ai_result["status"] == "error":
+                return AgentResponse(status="error", message=ai_result["message"])
+
+            parsed_intent = ai_result["parsed_intent"]
+
         intent = parsed_intent.get("intent")
         natural_response = parsed_intent.get("natural_response", "")
         
@@ -166,7 +210,12 @@ async def ai_chat(request: ChatRequest, user: dict = Depends(get_current_user)):
         if intent == "create_sales_order":
             # Check for high-value order approval requirement
             items = parsed_intent.get("items", [])
-            estimated_value = sum(item.get("qty", 1) * item.get("rate", 0) for item in items)
+            estimated_value = 0.0
+            provided_total = parsed_intent.get("total_amount")
+            if isinstance(provided_total, (int, float)):
+                estimated_value = float(provided_total)
+            else:
+                estimated_value = float(sum(item.get("qty", 1) * item.get("rate", 0) for item in items))
             
             if estimated_value > 50000 and user and user_role not in ["admin"]:
                 # Requires approval
@@ -219,7 +268,15 @@ async def ai_chat(request: ChatRequest, user: dict = Depends(get_current_user)):
                 transaction_date=parsed_intent.get("transaction_date", datetime.now().strftime("%Y-%m-%d")),
                 items=[SalesOrderItem(**item) for item in parsed_intent.get("items", [])]
             )
-            result = await erp_service.create_sales_order(sales_order, company=user.get("company") if user else None)
+            requested_company = (
+                parsed_intent.get("company")
+                or parsed_intent.get("company_name")
+                or (user.get("company") if user else None)
+            )
+            if isinstance(requested_company, str):
+                requested_company = requested_company.strip() or None
+
+            result = await erp_service.create_sales_order(sales_order, company=requested_company)
             
             if result["status"] == "success" and user:
                 await audit_service.log_action(
@@ -363,7 +420,11 @@ async def agent_orchestration(request: AgentRequest, user: dict = Depends(requir
                 transaction_date=request.transaction_date or datetime.now().strftime("%Y-%m-%d"),
                 items=[SalesOrderItem(**item.model_dump()) for item in request.items]
             )
-            result = await erp_service.create_sales_order(sales_order, company=user.get("company") if user else None)
+            requested_company = request.company or (user.get("company") if user else None)
+            if isinstance(requested_company, str):
+                requested_company = requested_company.strip() or None
+
+            result = await erp_service.create_sales_order(sales_order, company=requested_company)
             
             if result["status"] == "success":
                 await audit_service.log_action(

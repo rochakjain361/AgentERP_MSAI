@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List
 import uuid
 
-from config import ERP_URL, ERP_API_KEY, ERP_API_SECRET, ERP_MOCK_MODE
+from config import ERP_URL, ERP_API_KEY, ERP_API_SECRET, ERP_MOCK_MODE, ERP_COMPANY, ERP_WAREHOUSE
 from models import Customer, SalesOrder
 
 
@@ -19,6 +19,8 @@ class ERPNextService:
         self.api_key = ERP_API_KEY
         self.api_secret = ERP_API_SECRET
         self.mock_mode = ERP_MOCK_MODE
+        self.default_company = ERP_COMPANY
+        self.default_warehouse = ERP_WAREHOUSE
         self.headers = {
             "Authorization": f"token {self.api_key}:{self.api_secret}",
             "Content-Type": "application/json",
@@ -167,14 +169,20 @@ class ERPNextService:
                     except:
                         pass
                     
-                    items_list.append({
+                    item_payload = {
                         "item_code": item.item_code,
                         "qty": item.qty,
                         "rate": item_rate,
-                        "delivery_date": sales_order.transaction_date,
-                        "warehouse": "Finished Goods - IND"
-                    })
+                        "delivery_date": sales_order.transaction_date
+                    }
+                    # Only send warehouse when explicitly configured in this ERP instance.
+                    if self.default_warehouse:
+                        item_payload["warehouse"] = self.default_warehouse
+
+                    items_list.append(item_payload)
                 
+                resolved_company = company or self.default_company
+
                 payload = {
                     "doctype": "Sales Order",
                     "naming_series": "SAL-ORD-",
@@ -182,13 +190,16 @@ class ERPNextService:
                     "transaction_date": sales_order.transaction_date,
                     "delivery_date": sales_order.transaction_date,
                     "currency": "INR",
-                    "company": company or "India-Next (Demo)",
                     "selling_price_list": "Standard Selling",
                     "price_list_currency": "INR",
                     "plc_conversion_rate": 1.0,
                     "conversion_rate": 1.0,
                     "items": items_list
                 }
+
+                # Only send company when explicitly provided/configured.
+                if resolved_company:
+                    payload["company"] = resolved_company
                 
                 response = await client.post(url, headers=self.headers, json=payload)
                 

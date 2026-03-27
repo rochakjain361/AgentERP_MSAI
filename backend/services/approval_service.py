@@ -23,64 +23,6 @@ class ApprovalService:
         """Return ISO datetime string when value is datetime, otherwise passthrough."""
         return value.isoformat() if hasattr(value, "isoformat") else value
 
-    def _get_mock_pending_approvals(self) -> List[Dict[str, Any]]:
-        """Temporary fallback data for demo when pending queue is empty."""
-        now = datetime.now(timezone.utc)
-        return [
-            {
-                "id": "mock-approval-001",
-                "requester_id": "mock-operator-001",
-                "requester_email": "operator@agenterp.com",
-                "requester_role": UserRole.OPERATOR.value,
-                "action_type": "create_order",
-                "resource_type": "SalesOrder",
-                "resource_data": {
-                    "name": "SAL-ORD-MOCK-001",
-                    "customer": "TechCorp Solutions",
-                    "grand_total": 182500,
-                    "items": [
-                        {"item_code": "ERP-LIC-PRO", "qty": 5, "rate": 25000},
-                        {"item_code": "IMPLEMENT-SVC", "qty": 1, "rate": 57500}
-                    ]
-                },
-                "rule_triggered": ApprovalRule.HIGH_VALUE_ORDER.value,
-                "reason": "Order value exceeds approval threshold and requires manager review",
-                "ai_analysis": "High-value order from repeat customer. Margins look healthy; recommend approval after confirming payment terms.",
-                "status": ApprovalStatus.PENDING.value,
-                "reviewer_id": None,
-                "reviewer_email": None,
-                "review_notes": None,
-                "created_at": (now).isoformat(),
-                "reviewed_at": None,
-                "is_mock": True
-            },
-            {
-                "id": "mock-approval-002",
-                "requester_id": "mock-operator-002",
-                "requester_email": "operator@agenterp.com",
-                "requester_role": UserRole.OPERATOR.value,
-                "action_type": "update_order",
-                "resource_type": "SalesOrder",
-                "resource_data": {
-                    "name": "SAL-ORD-MOCK-002",
-                    "customer": "Global Industries Ltd",
-                    "grand_total": 94000,
-                    "items": [
-                        {"item_code": "ANALYTICS-ADDON", "qty": 2, "rate": 47000}
-                    ]
-                },
-                "rule_triggered": ApprovalRule.HIGH_VALUE_ORDER.value,
-                "reason": "Updated order total now crosses threshold and needs approval",
-                "ai_analysis": "Customer payment pattern is stable. Low operational risk, moderate exposure.",
-                "status": ApprovalStatus.PENDING.value,
-                "reviewer_id": None,
-                "reviewer_email": None,
-                "review_notes": None,
-                "created_at": (now).isoformat(),
-                "reviewed_at": None,
-                "is_mock": True
-            }
-        ]
     
     @property
     def approvals_collection(self):
@@ -229,15 +171,6 @@ class ApprovalService:
                     doc["reviewed_at"] = self._serialize_dt(doc.get("reviewed_at"))
                 approvals.append(doc)
 
-            # Temporary demo fallback: keep at least 2 pending items visible.
-            if len(approvals) < 2:
-                existing_ids = {a.get("id") for a in approvals}
-                for mock in self._get_mock_pending_approvals():
-                    if mock.get("id") not in existing_ids:
-                        approvals.append(mock)
-                    if len(approvals) >= 2:
-                        break
-            
             return {
                 "status": "success",
                 "approvals": approvals,

@@ -160,9 +160,9 @@ const ManagerIntelligence = ({ onClose }) => {
               <Brain className="w-16 h-16 text-blue-400 opacity-50" />
             </div>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900">AI Analysis in Progress</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Analyzing Monthly Business Health Report</h3>
           <p className="text-gray-600 text-center">
-            Building your Monthly Business Health Report using live ERP signals...
+            Leveraging Azure AI to provide strategic insights and actionable recommendations for your business.
           </p>
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
@@ -184,7 +184,7 @@ const ManagerIntelligence = ({ onClose }) => {
           <div>
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <Brain className="w-6 h-6 text-blue-600" />
-              Business Health Dashboard
+              Business Health Intelligence Dashboard
             </h2>
             <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
               <Zap className="w-4 h-4 text-amber-500" />

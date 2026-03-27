@@ -21,7 +21,12 @@ Actions: check_customer, create_customer, create_sales_order, list_sales_orders,
 Items: SKU001-SKU005
 
 Return JSON only:
-{"intent": "action", "customer": "name", "items": [{"item_code": "X", "qty": N}], "natural_response": "brief response"}"""
+{"intent": "action", "customer": "name", "company": "company name if user mentions one", "items": [{"item_code": "X", "qty": N}], "natural_response": "brief response"}
+
+Rules:
+- For create_sales_order, always extract "customer".
+- If user mentions a company name explicitly (e.g., "for company TechCorp Solutions"), set "company" to that exact value.
+- If no company is mentioned, omit "company"."""
 
 
 class AIService:

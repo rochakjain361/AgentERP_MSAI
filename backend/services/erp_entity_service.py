@@ -225,22 +225,24 @@ class ERPEntityService:
         
         # Add company filter for non-admin users
         if company_filter:
-            # Different DocTypes have different company fields
+            # Sales Order / Invoice use the ERP `company` field (the selling entity).
+            # Quotation/Delivery Note also have a `company` field.
+            # Customer doctype has no company field; filter by name instead.
             company_field_map = {
-                "Sales Order": "customer",
-                "Sales Invoice": "customer",
-                "Quotation": "party_name",
-                "Delivery Note": "customer",
-                "Customer": "name",  # Filter customers by name match
+                "Sales Order": "company",
+                "Sales Invoice": "company",
+                "Quotation": "company",
+                "Delivery Note": "company",
+                "Customer": "name",
             }
-            
-            field = company_field_map.get(doctype, "customer")
-            
+
+            field = company_field_map.get(doctype, "company")
+
             if doctype == "Customer":
                 # For customer, filter by name containing company
                 query_filters.append([field, "like", f"%{company_filter}%"])
             else:
-                # For orders/invoices, filter by customer
+                # For transactional doctypes, filter by the ERP company (seller)
                 query_filters.append([field, "=", company_filter])
         
         if query_filters:

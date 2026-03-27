@@ -18,6 +18,7 @@ class AgentRequest(BaseModel):
     items: Optional[List[ItemRequest]] = None
     transaction_date: Optional[str] = None
     customer_data: Optional[Dict[str, Any]] = None
+    company: Optional[str] = None
 
 
 class ChatRequest(BaseModel):
